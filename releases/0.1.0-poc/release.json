@@ -1,0 +1,26 @@
+{
+  "project": "PocketInstall",
+  "version": "0.1.0-poc",
+  "source_commit": "e9b25ed19364732123132fb0f32416b0f11fe4ba",
+  "hardware_tested": false,
+  "uefi_http_boot_vm": "passed, Python and shared Kotlin server",
+  "server_tcp_tests": 12,
+  "secure_boot_poc": "unsigned",
+  "artifacts": [
+    {
+      "name": "PocketInstall-0.1.0-poc-debug.apk",
+      "bytes": 9926730,
+      "sha256": "7ffd72f1dc367456daae1a678d84eb83394b3730fe4320e05ed9cd9d8c7ba4c7"
+    },
+    {
+      "name": "bootx64.efi",
+      "bytes": 4896,
+      "sha256": "347838d868cd2b205102eb171ec24f8f53226a00cabc36e7b227645be6772937"
+    },
+    {
+      "name": "PocketInstall.repository.bundle",
+      "bytes": 126787,
+      "sha256": "cd53f84846d56db43a4405035b763544b5948c91cf47ad4b0321875c89d364c6"
+    }
+  ]
+}

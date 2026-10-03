@@ -1,0 +1,2 @@
+{"time": 1790989592.649, "client": "127.0.0.1", "method": "HEAD", "file": "bootx64.efi", "status": 200, "planned_bytes": 4896}
+{"time": 1790989592.654, "client": "127.0.0.1", "method": "GET", "file": "bootx64.efi", "status": 200, "planned_bytes": 4896}

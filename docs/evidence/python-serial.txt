@@ -1,0 +1,22 @@
+
+>>Start HTTP Boot over IPv4....
+  Station IP address is 10.0.2.15
+
+  URI: http://10.0.2.2:43773/<session>/bootx64.efi
+  File Size: 4896 Bytes
+
+  Downloading...24%
+  Downloading...53%
+  Downloading...83%
+  Downloading...100%BdsDxe: loading Boot0099 "netboot bootx64.efi" from Uri(http://10.0.2.2:43773/<session>/bootx64.efi)
+BdsDxe: starting Boot0099 "netboot bootx64.efi" from Uri(http://10.0.2.2:43773/<session>/bootx64.efi)
+
+PocketInstall boot successful
+
+UEFI x64 proof of concept
+This program does not open or write any disk.
+Confirm HTTP delivery in the server request log.
+
+Press any key to shut down, or wait 30 seconds.
+
+PocketInstall: shutting down.

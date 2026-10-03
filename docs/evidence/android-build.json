@@ -1,0 +1,16 @@
+{
+  "package": "app.pocketinstall",
+  "version": "0.1.0-poc",
+  "build": "debug",
+  "minSdk": 26,
+  "targetSdk": 36,
+  "apk_bytes": 9926730,
+  "apk_sha256": "7ffd72f1dc367456daae1a678d84eb83394b3730fe4320e05ed9cd9d8c7ba4c7",
+  "apk_signature_verified": true,
+  "efi_bytes": 4896,
+  "efi_sha256": "347838d868cd2b205102eb171ec24f8f53226a00cabc36e7b227645be6772937",
+  "efi_signed": false,
+  "efi_uncompressed_in_apk": true,
+  "android_device_tested": false,
+  "gradle_wrapper_used": true
+}

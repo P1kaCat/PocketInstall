@@ -1,0 +1,25 @@
+PocketInstall Android third-party notices
+
+AndroidX, Jetpack Compose and Android Activity/Core/Lifecycle
+Copyright The Android Open Source Project; Apache License 2.0
+https://android.googlesource.com/platform/frameworks/support/
+
+Kotlin and kotlinx.coroutines
+Copyright JetBrains s.r.o. and contributors; Apache License 2.0
+https://github.com/JetBrains/kotlin
+https://github.com/Kotlin/kotlinx.coroutines
+
+Gradle Wrapper (build tooling)
+Copyright Gradle, Inc. and contributors; Apache License 2.0
+https://github.com/gradle/gradle
+
+Bundled EFI contains GNU-EFI startup/relocation code; BSD-style license.
+See assets/licenses/GNU-EFI.txt and boot/THIRD_PARTY_NOTICES.txt.
+
+JUnit 4 (test dependency only) is Eclipse Public License 1.0.
+No Microsoft binaries, iPXE or wimboot are included in the APK.
+
+Skia path code in the AndroidX graphics-path native library
+Copyright (c) 2011 Google Inc.; BSD 3-clause license.
+https://github.com/google/skia
+See assets/licenses/Skia-BSD.txt.

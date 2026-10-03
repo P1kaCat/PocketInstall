@@ -1,0 +1,8 @@
+{
+  "kind": "pocketinstall-efi-proof",
+  "architecture": "x64",
+  "bytes": 4896,
+  "sha256": "347838d868cd2b205102eb171ec24f8f53226a00cabc36e7b227645be6772937",
+  "signed": false,
+  "disk_access": false
+}

@@ -1,0 +1,14 @@
+{
+  "transport": "native UEFI HTTP Boot",
+  "guest_disks": 0,
+  "secure_boot": "disabled",
+  "efi": "boot/build/bootx64.efi",
+  "success": true,
+  "http_get": true,
+  "displayed_success": true,
+  "shutdown": true,
+  "qemu_exit": 0,
+  "server": "Android server-core on JVM",
+  "android_service_tested": false,
+  "firmware": "edk2-stable202605, X64 RELEASE_GCC, HTTP Boot enabled"
+}

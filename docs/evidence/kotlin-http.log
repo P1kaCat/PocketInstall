@@ -1,0 +1,6 @@
+BOOT_URL=<temporary session redacted>
+STARTED HEAD bootx64.efi 200 0/4896 127.0.0.1
+FINISHED HEAD bootx64.efi 200 0/4896 127.0.0.1
+STARTED GET bootx64.efi 200 0/4896 127.0.0.1
+FINISHED GET bootx64.efi 200 4896/4896 127.0.0.1
+Serveur arrêté.

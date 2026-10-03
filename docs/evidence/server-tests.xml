@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="app.pocketinstall.server.LocalHttpServerTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-03T01:14:54.932Z" time="0.573">
+  <properties />
+  <testcase name="parserRejectsOversizedHeadersAndBodies" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.06" />
+  <testcase name="expiryClosesThePortAndRestartHasANewToken" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.22" />
+  <testcase name="slowDripDoesNotKeepAHeaderWorkerAlive" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.226" />
+  <testcase name="publicAndWildcardBindsAreRejected" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.001" />
+  <testcase name="rangesSupportResumeAndSuffix" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.013" />
+  <testcase name="sourceSubnetIsEnforcedAtTheSocket" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.003" />
+  <testcase name="largeResourcesUseLongAndCanFetchPastFourGiB" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.011" />
+  <testcase name="pathsAndMethodsAreReadOnlyAndAllowlisted" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.016" />
+  <testcase name="rfc1918PolicyDoesNotMistakeLinkLocalForPrivateLan" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.0" />
+  <testcase name="invalidAndMultipleRangesDoNotLeakData" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.005" />
+  <testcase name="eventsContainOnlyResourceNamesAndNeverTokens" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.014" />
+  <testcase name="getDeliversExactBytesAndHeadOnlyAdvertisesLength" classname="app.pocketinstall.server.LocalHttpServerTest" time="0.003" />
+  <system-out />
+  <system-err />
+</testsuite>
