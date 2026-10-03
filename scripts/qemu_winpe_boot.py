@@ -39,7 +39,7 @@ def main():
            '-drive', f'if=pflash,format=raw,readonly=on,file={a.code.resolve()}',
            '-drive', f'if=pflash,format=raw,file={out / "vars.fd"}',
            '-netdev', f'user,id=lan,tftp={tftp},bootfile=snponly.efi',
-           '-device', 'e1000,netdev=lan,romfile=', '-boot', 'order=n,strict=on',
+           '-device', 'e1000,netdev=lan,bootindex=1', '-boot', 'order=n,strict=on',
            '-display', 'none', '-vga', 'std', '-serial', f'file:{out / "serial.log"}',
            '-qmp', f'unix:{out / "qmp.sock"},server=on,wait=off', '-no-reboot']
     server = qemu = None
