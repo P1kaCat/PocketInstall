@@ -10,6 +10,11 @@ Les cases ne sont cochées qu'après validation du critère indiqué.
 - [x] Test de ce binaire sous QEMU/OVMF avec **HTTP**, sans boot PXE/iPXE implicite.
 - [x] Tester le serveur Kotlin de l'APK avec HTTP Boot natif en VM.
 - [x] Compiler l'APK Android POC et vérifier son asset EFI et sa signature APK.
+- [x] Ajouter TFTP Android/JVM borné et tester le protocole par échanges UDP.
+- [x] Exécuter le POC via PXE natif dans QEMU/OVMF, TFTP de référence, zéro disque.
+- [x] Préparer le diagnostic PXE et un relais Linux proxy-DHCP ciblé.
+- [ ] Valider le mode PXE APK sur un Android réel non rooté (port 69/6969, pare-feu).
+- [ ] Valider DHCP configurable / proxy-DHCP et EFI sur un PC PXE physique.
 - [ ] Servir le même binaire depuis Android non rooté ; journaliser le transfert.
 - [ ] Constater le message et l'arrêt sur un PC physique, firmware/version tracés.
 

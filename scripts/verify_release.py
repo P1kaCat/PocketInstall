@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+import xml.etree.ElementTree as ET
 
 
 def sha256(path: Path) -> str:
@@ -41,6 +42,25 @@ def prepare(apk: Path, output: Path, version: str, commit: str, aapt: Path) -> N
     if not license_text.startswith(b"PocketInstall Personal Use License 1.0"):
         raise ValueError("Unexpected project license")
     assets = root / "android/app/src/main/assets"
+    boot_manifest = json.loads((assets / "boot/manifest.json").read_text())
+    efi_asset = assets / "boot/bootx64.efi"
+    if boot_manifest["sha256"] != sha256(efi_asset) or boot_manifest["bytes"] != efi_asset.stat().st_size:
+        raise ValueError("EFI manifest differs from the asset")
+    pxe_result = root / "lab-pxe-output/result.json"
+    validation = json.loads(pxe_result.read_text())
+    if validation.get("success") is not True or validation.get("guest_disks") != 0 or \
+       validation.get("efi_sha256") != sha256(efi_asset) or validation.get("kotlin_server_in_this_vm") is not False:
+        raise ValueError("Expected successful isolated reference PXE boot of this EFI")
+    tests = sorted((root / "android/server-core/build/test-results/test").glob("TEST-*.xml"))
+    if not tests:
+        raise ValueError("Missing shared server test results")
+    summary = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+    for report in tests:
+        suite = ET.parse(report).getroot()
+        for key in summary:
+            summary[key] += int(suite.get(key, "0"))
+    if summary["tests"] < 30 or any(summary[key] for key in ("failures", "errors", "skipped")):
+        raise ValueError("Expected all TCP/USB/TFTP tests to pass")
     required = [
         "licenses/PocketInstall-Personal.txt",
         "licenses/Apache-2.0.txt",
@@ -75,9 +95,23 @@ def prepare(apk: Path, output: Path, version: str, commit: str, aapt: Path) -> N
         "GNU-EFI.txt": assets / "licenses/GNU-EFI.txt",
         "Apache-2.0.txt": assets / "licenses/Apache-2.0.txt",
         "Skia-BSD.txt": assets / "licenses/Skia-BSD.txt",
+        "PXE-QEMU-result.json": pxe_result,
+        "PXE-QEMU-serial.txt": root / "lab-pxe-output/serial.log",
+        "PXE-QEMU-network.pcap": root / "lab-pxe-output/network.pcap",
     }
     for name, source in copies.items():
         shutil.copyfile(source, output / name)
+    reports = ET.Element("testsuites", {key: str(value) for key, value in summary.items()})
+    for report in tests:
+        reports.append(ET.parse(report).getroot())
+    ET.ElementTree(reports).write(output / "SERVER-TESTS.xml", encoding="utf-8", xml_declaration=True)
+    # Useful standalone relay source bundle; the phone supplies the proof binary.
+    relay_files = ["LICENSE", "docs/PXE.md", "scripts/prepare_pxe_relay.py", "scripts/verify_efi.py",
+                   "scripts/test_pxe_relay.py", "android/app/src/main/assets/boot/manifest.json"]
+    with zipfile.ZipFile(output / "PXE-relay-tools.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in relay_files:
+            archive.write(root / name, name)
+    artifact_names = sorted([*copies, "SERVER-TESTS.xml", "PXE-relay-tools.zip"])
     manifest = {
         "project": "PocketInstall",
         "version": version,
@@ -90,16 +124,21 @@ def prepare(apk: Path, output: Path, version: str, commit: str, aapt: Path) -> N
         },
         "hardware_tested": False,
         "efi_secure_boot": "unsigned",
+        "pxe": {"firmware": "UEFI x64 PXE IPv4", "android_dhcp": False,
+                "requires": "configured boot DHCP and standard TFTP, or an external relay",
+                "android_tftp_ports": [69, 6969], "usb_pxe": False},
+        "validation": {"pxe_reference_vm": validation, "shared_server_tests": summary,
+                       "android_hardware_tested": False},
         "artifacts": [
             {"name": name, "bytes": (output / name).stat().st_size,
              "sha256": sha256(output / name)}
-            for name in sorted(copies)
+            for name in artifact_names
         ],
     }
     (output / "release.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    names = sorted([*copies, "release.json"])
+    names = sorted([*artifact_names, "release.json"])
     (output / "SHA256SUMS").write_text(
         "".join(sha256(output / name) + "  " + name + "\n" for name in names),
         encoding="ascii",

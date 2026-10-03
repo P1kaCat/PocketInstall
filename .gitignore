@@ -19,3 +19,8 @@ vendor/
 .venv-lab/
 dist/
 .DS_Store
+
+lab-pxe-output/
+lab-dnsmasq.conf
+pxe-relay/
+release-out/

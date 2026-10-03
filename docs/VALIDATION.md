@@ -3,6 +3,49 @@
 Ces résultats décrivent cette livraison. Ils ne certifient pas un téléphone ou
 un PC physique. Les procédures reproductibles sont dans [TESTING.md](TESTING.md).
 
+## Version 0.1.3 : PXE IPv4 natif
+
+Le 3 octobre 2026, le POC a démarré dans QEMU **8.2.2** (Ubuntu
+`1:8.2.2+ds-0ubuntu1.18`), OVMF **2024.02-2ubuntu0.9**, q35/TCG, 512 Mio :
+
+| Contrôle | Observation |
+|---|---|
+| Firmware PXE IPv4 | OVMF natif, virtio-net ; ROM NIC iPXE désactivée. |
+| DHCP / TFTP | Réseau virtuel isolé SLIRP ; serveur de référence QEMU/libslirp. |
+| RRQ | Nom de session / EFI exact dans la capture PCAP. |
+| DATA | 4 blocs ; octets reconstitués identiques à l'EFI. |
+| ACK | Tous les blocs de données acquittés. |
+| Exécution | `PocketInstall boot successful` dans la console firmware. |
+| Arrêt | Message d'arrêt puis sortie QEMU 0. |
+| Disques invités | **0**. Variables OVMF jetables seulement. |
+| Téléphone réel / ASUS PRIME B365M-K | **Non testé**. |
+
+Preuves locales : [résultat](evidence/pxe-0.1.3/result.json),
+[console](evidence/pxe-0.1.3/serial.log). La capture complète et les résultats
+JUnit de la construction officielle sont joints à la release GitHub.
+
+**Le TFTP de cette VM est celui de référence, pas le serveur Kotlin.** Le module
+Kotlin partagé par l'APK est testé séparément par des échanges UDP réels. Les
+contrôles d'options, contenu, EOF, pertes d'ACK, mauvais TID, session, refus WRQ,
+expiration et bind occupé ne remplacent pas un boot Android physique.
+
+Avant publication, le workflow exige la reconstruction EFI identique à l'asset,
+les tests Python du relais et la syntaxe dnsmasq, le boot PXE sans disque, tous
+les tests Gradle avec le Kotlin/JDK épinglé du projet, assembleDebug, lintDebug,
+apksigner et la validation des assets/manifestes. La release contient ces preuves
+et le SHA du commit réellement construit. Une publication n'est pas possible si
+le test PXE ou les tests de serveur échouent.
+
+Le POC de cette version est toujours **4 896 octets**, x64 EFI_APPLICATION,
+non signé, sans imports OS ni accès disque. SHA256 actuel :
+
+```text
+79297e8a11747abce0c53f6a522ebfcd6cd36f6550b0a8042b558749a8fe186d
+```
+
+Les mesures HTTP et le hash ci-dessous décrivent le **POC historique 0.1.0**.
+La modification du texte de console pour HTTP/TFTP explique le nouveau hash.
+
 ## Démarrage HTTP natif : réussi
 
 Deux essais complets, QEMU **8.2.2**, x64/q35/TCG, 512 Mio de RAM, OVMF construit

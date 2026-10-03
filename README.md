@@ -1,10 +1,10 @@
 # PocketInstall
 
 Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur le
-même LAN, via **UEFI HTTP Boot**, sans clé USB, câble téléphone–PC ou application
+même LAN, via **UEFI HTTP Boot** ou **UEFI PXE IPv4 sous conditions**, sans clé USB ou application
 préinstallée sur le PC.
 
-Cette livraison est le **POC 0.1.2**. Elle fournit un environnement EFI minimal,
+Cette livraison est le **POC 0.1.3**. Elle fournit un environnement EFI minimal,
 une application Android Kotlin/Compose, les tests réseau et la préparation de
 la future chaîne WinPE. Elle n'installe ni ne répare encore Windows.
 
@@ -20,7 +20,8 @@ désactivé : le premier téléchargement est effectué par OVMF.
 |---|---|
 | Recherche sourcée et architecture | Terminées ; verdict conditionnel. |
 | EFI x64 autonome | Compilé, 4 896 octets, exécuté en VM par HTTP Boot. |
-| Serveur Kotlin | 12 tests TCP réussis et boot HTTP natif réussi en VM. |
+| Serveur Kotlin | Tests TCP/USB/UDP et boot HTTP natif validé précédemment en VM. |
+| PXE IPv4 | EFI exécuté en VM via TFTP de référence ; TFTP Kotlin testé séparément en UDP. |
 | Android / Compose | APK debug compilé ; signature et binaire embarqué vérifiés. |
 | Téléphone réel + PC physique | **Pas encore testé**. Aucun fabricant certifié. |
 | WinPE / installation Windows | Scripts et architecture préparés ; pas exécutés sous Windows. |
@@ -31,8 +32,9 @@ Un GET reçu par le téléphone ne suffit pas : le succès doit être visible su
 ## Faisabilité et limites
 
 **MVP viable sur matériel compatible**, sans promesse universelle : UEFI x64 avec
-HTTP Boot, URI saisissable ou DHCP configurable, pilote réseau préboot et politique
-Secure Boot adaptée. PXE seul ne suffit pas. La présence du Wi-Fi dans Windows ne
+HTTP Boot avec URI utilisable, ou UEFI PXE IPv4 avec configuration DHCP/TFTP ou
+relais externe, pilote réseau préboot et politique Secure Boot adaptée. Un menu
+PXE seul ne configure pas le serveur. La présence du Wi-Fi dans Windows ne
 prouve pas son support dans le firmware. Le téléphone n'ajoute aucun de ces
 composants au PC et ne remplace pas le DHCP du routeur.
 
@@ -48,9 +50,9 @@ distincts. Voir [research/FEASIBILITY.md](research/FEASIBILITY.md) et
 
 ## Essayer l'application
 
-La [release GitHub v0.1.2-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.2-poc)
+La [release GitHub v0.1.3-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.3-poc)
 fournit l'APK Android, le binaire EFI, la licence et leurs hashes.
-[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.2-poc/PocketInstall-0.1.2-poc-debug.apk).
+[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.3-poc/PocketInstall-0.1.3-poc-debug.apk).
 C'est un APK de développement pour Android 8+ ; aucun root ni câble USB requis.
 Si Android refuse la mise à jour du POC 0.1.0 pour signature différente,
 désinstaller cette ancienne version avant d'installer la nouvelle.
@@ -72,6 +74,24 @@ Le serveur est désactivé par défaut, lié à une IPv4 LAN privée, limité au
 sous-réseau, en lecture seule et fermé après 30 min. Le journal indique les fichiers
 demandés et les octets envoyés. HTTP clair et token temporaire ne protègent pas
 contre un attaquant actif du LAN : [SECURITY.md](SECURITY.md).
+
+## Nouveau : PC sans HTTP Boot, UEFI PXE IPv4
+
+Choisir **PXE IPv4 · Ethernet · expérimental** dans l'application. Le PC peut
+charger directement le POC EFI via TFTP ; HTTP Boot dans le BIOS et iPXE ne sont
+pas nécessaires pour ce test. Le téléphone reste sur le même LAN, éventuellement
+en Wi-Fi ; le PC utilise Ethernet.
+
+**Un DHCP avec paramètres de boot configurables ou un relais externe est requis.**
+L'application tente UDP 69, puis 6969 s'il est indisponible, avec un diagnostic.
+Un port 6969 ne permet pas un PXE standard direct. Le relais Linux optionnel
+récupère le POC vérifié par SHA256 depuis le téléphone et fournit proxy-DHCP/TFTP,
+sans remplacer l'attribution d'adresses de la box. Il nécessite un appareil
+supplémentaire et n'est jamais présenté comme un PXE autonome téléphone seul.
+
+Procédure : [docs/PXE.md](docs/PXE.md). Limites et sources :
+[research/PXE.md](research/PXE.md). L'application ne configure pas le routeur,
+n'ouvre pas de DHCP Android et ne transforme pas le téléphone en clé USB bootable.
 
 ## Option câble USB
 
@@ -121,6 +141,16 @@ Le script contrôle téléchargement, message et arrêt ; zéro disque invité.
 Un OVMF de distribution peut omettre HTTP Boot. Le build du firmware de test,
 la source d'aléa virtio-rng et l'essai du serveur Kotlin sont documentés dans
 [docs/TESTING.md](docs/TESTING.md). Ce firmware n'est jamais à flasher sur un PC.
+
+Le laboratoire PXE de référence, également sans disque invité :
+
+```sh
+python3 scripts/qemu_pxe_boot.py
+```
+
+Ce test utilise le TFTP QEMU/libslirp et vérifie le trafic PCAP, l'exécution EFI
+et l'arrêt. Les tests UDP du TFTP Kotlin partagé par l'APK sont séparés ; aucun
+de ces tests ne certifie le démarrage depuis un téléphone réel.
 
 ## WinPE et suite du projet
 

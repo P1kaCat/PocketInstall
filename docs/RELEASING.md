@@ -26,6 +26,18 @@ La release est marquée **prerelease** tant que PocketInstall reste un POC.
 Elle contient l'APK, `bootx64.efi`, `LICENSE.txt`, les notices tierces,
 `release.json` et `SHA256SUMS`. Le tag pointe vers le commit réellement construit.
 
+À partir de 0.1.3, la CI reconstruit aussi l'EFI et compare les octets à l'asset,
+vérifie le relais/dnsmasq et exécute PXE natif dans QEMU/OVMF sans disque. Le
+préparateur de release exige un résultat réussi pour le hash EFI courant et
+au moins 30 tests de serveur, sans échec/erreur/skip. Les tests TFTP Kotlin et
+la VM TFTP QEMU/libslirp sont deux validations distinctes.
+
+Assets supplémentaires : `PXE-QEMU-result.json`, `PXE-QEMU-serial.txt`,
+`PXE-QEMU-network.pcap`, `SERVER-TESTS.xml` et `PXE-relay-tools.zip`. Le ZIP
+contient les sources du relais, son guide, la licence et le manifeste de hash,
+sans binaire Microsoft/iPXE. Décompresser puis exécuter la préparation comme
+dans `docs/PXE.md` ; elle récupère l'EFI depuis le téléphone.
+
 Une version déjà publiée n'est jamais remplacée. Une relance du même commit
 conserve la release existante ; un autre commit doit augmenter la version.
 

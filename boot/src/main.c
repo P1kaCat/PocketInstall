@@ -18,7 +18,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *st)
         L"\r\nPocketInstall boot successful\r\n\r\n"
         L"UEFI x64 proof of concept\r\n"
         L"This program does not open or write any disk.\r\n"
-        L"Confirm HTTP delivery in the server request log.\r\n\r\n"
+        L"Confirm HTTP or TFTP delivery in the server log.\r\n\r\n"
         L"Press any key to shut down, or wait 30 seconds.\r\n";
     static CHAR16 stopping[] = L"\r\nPocketInstall: shutting down.\r\n";
     (void)image;

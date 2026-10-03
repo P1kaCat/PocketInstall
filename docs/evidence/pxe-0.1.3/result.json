@@ -1,0 +1,17 @@
+{
+  "transport": "native OVMF UEFI PXE IPv4",
+  "tftp_server": "QEMU/libslirp reference",
+  "kotlin_server_in_this_vm": false,
+  "guest_disks": 0,
+  "nic_option_rom": "disabled",
+  "secure_boot": "disabled",
+  "efi_sha256": "79297e8a11747abce0c53f6a522ebfcd6cd36f6550b0a8042b558749a8fe186d",
+  "success": true,
+  "tftp_rrq": true,
+  "tftp_bytes_match": true,
+  "tftp_blocks": 4,
+  "tftp_all_blocks_acknowledged": true,
+  "displayed_success": true,
+  "shutdown": true,
+  "qemu_exit": 0
+}

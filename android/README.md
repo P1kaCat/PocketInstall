@@ -68,3 +68,25 @@ Le serveur est lié à son IP et fermé si elle disparaît/change. Aucune API ca
 Le choix USB sert seulement le petit EFI : il ne certifie pas la reconnaissance
 RNDIS/NCM ni HTTP Boot dans l'UEFI et ne valide pas WinPE par USB.
 Voir [docs/USB_CABLE.md](../docs/USB_CABLE.md).
+
+## UEFI PXE IPv4
+
+Version 0.1.3 : mode PXE en LAN, avec le même EFI x64 via `LocalTftpServer`.
+Serveur UDP en lecture seule, lié à l'IP choisie et à la même session que HTTP.
+Essai 69 puis 6969 avec diagnostic ; quatre transferts, OACK blksize/timeout/tsize,
+logs d'octets acquittés et fermeture commune avec HTTP. Pas de DHCP Android.
+
+L'écran fournit le nom de fichier, les paramètres DHCP de boot conditionnels et
+une commande de préparation de relais Linux avec trois champs à renseigner.
+Le mode PXE n'est pas un bouton universel : DHCP configurable ou relais externe
+requis. USB PXE est désactivé ; le mode USB existant reste HTTP expérimental.
+Voir [docs/PXE.md](../docs/PXE.md).
+
+Les tests JVM effectuent des échanges UDP réels. Pour lancer le même TFTP hors
+Android, après `:server-core:installDist` :
+
+```sh
+server-core/build/install/server-core/bin/server-core --pxe app/src/main/assets/boot/bootx64.efi 127.0.0.1 8 6969
+```
+
+Loopback est une exception de laboratoire explicite, jamais proposée par l'APK.

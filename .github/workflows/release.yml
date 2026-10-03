@@ -75,6 +75,26 @@ jobs:
         shell: bash
         run: |
           "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify proof build and isolated UEFI PXE boot
+        if: steps.existing.outputs.skip != 'true'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gnu-efi qemu-system-x86 ovmf dnsmasq-base
+          make -C boot
+          cmp boot/build/bootx64.efi android/app/src/main/assets/boot/bootx64.efi
+          python3 scripts/test_pxe_relay.py
+          python3 - <<'PY'
+          import ipaddress, pathlib, sys
+          sys.path.insert(0, "scripts")
+          from prepare_pxe_relay import configuration
+          pathlib.Path("lab-dnsmasq.conf").write_text(configuration(
+              "192.168.1.10", ipaddress.IPv4Network("192.168.1.0/24"),
+              "eth0", "52:54:00:12:34:56", pathlib.Path("/tmp/pocketinstall-proof"),
+              "0123456789abcdef0123456789abcdef/bootx64.efi"))
+          PY
+          dnsmasq --test --conf-file=lab-dnsmasq.conf
+          python3 scripts/qemu_pxe_boot.py
       - name: Test, build and lint
         if: steps.existing.outputs.skip != 'true'
         working-directory: android

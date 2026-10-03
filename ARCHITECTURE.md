@@ -1,5 +1,33 @@
 # Architecture retenue
 
+## Parcours PXE ajouté en 0.1.3
+
+```mermaid
+flowchart TD
+  R["Routeur DHCP"] -->|"Adresse IPv4"| U["UEFI PXE x64"]
+  A["Android : HTTP et TFTP"] -->|"TFTP direct si UDP 69 et DHCP configuré"| U
+  A -->|"POC HTTP vérifié et mis en cache"| L["Relais Linux optionnel"]
+  L -->|"Proxy-DHCP et TFTP"| U
+  U --> E["EFI en RAM : message puis arrêt"]
+```
+
+`LocalTftpServer` est partagé entre APK et laboratoire JVM. Il utilise la même
+session que HTTP, une IP/sous-réseau privé choisi, UDP 69 si autorisé ou 6969 avec
+diagnostic de relais obligatoire. Aucun serveur DHCP n'est ajouté sur Android.
+Le POC se charge directement par TFTP ; iPXE n'est nécessaire qu'à une étape
+ultérieure pour une chaîne HTTP/WinPE plus riche.
+
+Le routeur doit annoncer les paramètres de boot, ou un relais externe fournit
+proxy-DHCP sans pool d'adresses. `prepare_pxe_relay.py` récupère uniquement l'EFI
+via HTTP, compare son SHA256 au manifeste du dépôt, puis prépare une racine TFTP
+privée et une configuration dnsmasq ciblée sur une MAC. L'opérateur lance le
+relais explicitement, avec timeout. La copie reste disponible jusqu'à l'arrêt
+du relais, indépendamment de la fermeture Android.
+
+Le parcours relayé nécessite un autre appareil et ne remplit donc pas la
+contrainte originale « seulement téléphone + PC + box non configurable ».
+USB PXE reste hors périmètre. Voir [docs/PXE.md](docs/PXE.md).
+
 ## POC sans accès disque
 
 ```mermaid

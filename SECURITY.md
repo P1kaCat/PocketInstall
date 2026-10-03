@@ -56,3 +56,31 @@ la session. Cette heuristique n'authentifie pas le PC ni ne vérifie l'UEFI.
 Android peut partager également Internet via son service système : l'utilisateur
 doit désactiver le partage USB dans les paramètres après usage. Arrêter le serveur
 PocketInstall n'arrête pas ce service Android indépendant.
+
+## PXE / TFTP et relais
+
+TFTP est lié uniquement à l'IP privée sélectionnée, limité au même sous-réseau
+et à la liste de ressources internes. RRQ `octet` uniquement, chemin exact
+`SESSION/bootx64.efi`, jamais de WRQ, résolution de chemin, upload ou commande.
+Requêtes bornées à 1 024 octets, options validées, blocs plafonnés à 1 428 octets,
+quatre workers maximum, essais / timeout bornés et session de 30 minutes.
+Les réponses/logs de rejet sont limités en fréquence. Les ACK d'une autre
+adresse/port ne font pas avancer le transfert. Les logs affichent le nom court,
+sans le token, et les octets **acquittés**, pas une prétendue exécution sur le PC.
+
+TFTP et DHCP sont en clair ; le token est visible dans les annonces DHCP et le
+RRQ. Ils ne protègent pas contre un attaquant actif du LAN. Aucun sysctl, règle
+iptables, root, UPnP, ouverture Internet ou DHCP Android n'est ajouté. Le repli
+6969 est déclaré non utilisable par PXE standard sans un autre équipement.
+
+Le relais Linux prépare seulement une configuration puis nécessite un lancement
+explicite. Proxy-DHCP **sans pool d'adresses**, interface sélectionnée, une MAC
+cible ; celle-ci n'est pas une authentification. Le téléchargement HTTP refuse
+les redirections/proxies externes et exige le SHA256 du POC fourni par le dépôt.
+Seul ce binaire vérifié est mis en cache, pas une ISO ou une commande arbitraire.
+L'instance dnsmasq privilégiée tourne au maximum 30 minutes avec la commande
+documentée ; aucun service permanent n'est installé/configuré par le script.
+
+Le relais conserve une copie après fermeture du téléphone : **arrêter les deux**
+et supprimer le cache. Le token Android ne révoque pas à distance cette copie.
+Limiter le test à un LAN autorisé et restaurer les annonces DHCP après le test.

@@ -1,0 +1,22 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H
+>>Start PXE over IPv4.
+  Station IP address is 10.0.2.15
+
+  Server IP address is 10.0.2.2
+  NBP filename is 0123456789abcdef0123456789abcdef/bootx64.efi
+  NBP filesize is 4896 Bytes
+ Downloading NBP file...
+
+  NBP file downloaded successfully.
+BdsDxe: loading Boot0001 "UEFI PXEv4 (MAC:525400123456)" from PciRoot(0x0)/Pci(0x1,0x0)/MAC(525400123456,0x1)/IPv4(0.0.0.0,0x0,DHCP,0.0.0.0,0.0.0.0,0.0.0.0)
+BdsDxe: starting Boot0001 "UEFI PXEv4 (MAC:525400123456)" from PciRoot(0x0)/Pci(0x1,0x0)/MAC(525400123456,0x1)/IPv4(0.0.0.0,0x0,DHCP,0.0.0.0,0.0.0.0,0.0.0.0)
+[2J[01;01H[1m[32m[40m
+PocketInstall boot successful
+
+UEFI x64 proof of concept
+This program does not open or write any disk.
+Confirm HTTP or TFTP delivery in the server log.
+
+Press any key to shut down, or wait 30 seconds.
+
+PocketInstall: shutting down.

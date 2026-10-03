@@ -205,3 +205,40 @@ restauration de l'interface après rotation/réouverture de l'application.
 Les tests JVM UsbLinkPolicy couvrent l'exclusion du VPN/mobile/Wi-Fi, IPv6,
 adresses publiques, interfaces inactives et sous-réseaux débordant l'espace privé.
 Ils ne valident ni un pilote Android ni un firmware physique.
+
+## PXE IPv4 sans disque (0.1.3)
+
+Procédure complète : [PXE.md](PXE.md). La VM de référence ne lance aucun DHCP
+sur le LAN domestique : QEMU/SLIRP fournit DHCP/TFTP dans son réseau isolé.
+
+```sh
+python3 scripts/test_pxe_relay.py
+python3 scripts/qemu_pxe_boot.py
+cd android
+./gradlew :server-core:test :app:assembleDebug :app:lintDebug
+```
+
+Le boot VM exige RRQ exact, DATA identiques à l'asset, ACK de tous les blocs,
+message de succès exécuté et arrêt. La console et le PCAP sont dans
+`lab-pxe-output/`. Le TFTP de la VM est celui de référence QEMU/libslirp.
+Les tests JVM de `LocalTftpServer` vérifient séparément les échanges UDP réels,
+OACK, bloc vide final, options rejetées/ignorées, pertes d'ACK, mauvais TID,
+écriture refusée, session, expiry et bind occupé. Ils ne valident pas Android.
+
+Test physique : APK en mode PXE LAN, PC UEFI x64 en Ethernet, DHCP de boot
+configurable ou relais Linux. Photographier le message et relever le transfert.
+Un téléchargement HTTP **sur le relais** prouve la préparation du cache, pas
+l'exécution sur le PC. Relever séparément DHCP/PXE, TFTP, message et arrêt.
+Arrêter le relais et supprimer son cache après le test.
+
+Fiche supplémentaire :
+
+```text
+Méthode : TFTP Android direct / redirection / relais Linux
+Android / version APK / port 69 ouvert ou repli 6969 :
+Routeur / DHCP / next-server / boot filename / proxy-DHCP :
+MAC Ethernet ciblée / interface relais :
+UEFI PXE IPv4 (pas Legacy) / BIOS version :
+RRQ / octets / ACK / message / arrêt :
+SHA256 EFI / disques présents :
+```

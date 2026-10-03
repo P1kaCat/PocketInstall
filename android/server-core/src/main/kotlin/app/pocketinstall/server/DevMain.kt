@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch
 
 /** Runs the identical server used in the Android service, on JVM for the lab. */
 fun main(args: Array<String>) {
+    if (args.firstOrNull() == "--pxe") { pxeMain(args.drop(1).toTypedArray()); return }
     require(args.isNotEmpty()) { "Usage: DevMain <bootx64.efi> [bind IPv4] [prefix] [port]" }
     val file = File(args[0]).also { require(it.isFile) }
     val bind = InetAddress.getByName(args.getOrElse(1) { "127.0.0.1" }) as Inet4Address

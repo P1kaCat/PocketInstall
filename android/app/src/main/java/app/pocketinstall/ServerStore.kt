@@ -1,6 +1,7 @@
 package app.pocketinstall
 
 import app.pocketinstall.server.HttpEvent
+import app.pocketinstall.server.TftpEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -16,6 +17,11 @@ data class ServerSnapshot(
     val events: List<HttpEvent> = emptyList(),
     val message: String = "Démarre une session pour le test EFI.",
     val usbMode: Boolean = false,
+    val pxeMode: Boolean = false,
+    val tftpPort: Int = 0,
+    val bootFilename: String = "",
+    val tftpMessage: String = "",
+    val tftpEvents: List<TftpEvent> = emptyList(),
 )
 object ServerStore {
     internal val mutable = MutableStateFlow(ServerSnapshot())

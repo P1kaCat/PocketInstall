@@ -4,6 +4,11 @@ Recherche du **3 octobre 2026**. Les sources sont des normes, documents des édi
 et documentation/source des projets concernés. Une possibilité documentée n'est
 pas un résultat de test : voir `docs/VALIDATION.md` pour les mesures du prototype.
 
+**Complément 0.1.3 :** un parcours UEFI PXE IPv4 / TFTP a été ajouté après cette
+étude du MVP HTTP. Il exige un DHCP de boot configurable ou un relais externe,
+sans promesse de serveur PXE autonome Android non rooté sur une box ordinaire.
+Voir [PXE.md](PXE.md) pour la recherche complémentaire.
+
 ## Verdict avant implémentation
 
 **GO pour un POC Android non rooté → HTTP Boot UEFI → application EFI x64 autonome.**
