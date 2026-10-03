@@ -1,0 +1,16 @@
+#!ipxe
+# iPXE project: https://ipxe.org/embed
+prompt --key 0x02 --timeout 2000 Ctrl-B: diagnostic PocketInstall && shell ||
+:dhcp
+dhcp || goto network_failed
+:connect
+chain tftp://${next-server}/pocketinstall.ipxe || goto config_failed
+exit
+:network_failed
+echo PocketInstall - connexion Ethernet ou DHCP indisponible.
+sleep 3
+goto dhcp
+:config_failed
+echo PocketInstall - pocketinstall.ipxe absent du dossier TFTP Freebox.
+sleep 3
+goto connect

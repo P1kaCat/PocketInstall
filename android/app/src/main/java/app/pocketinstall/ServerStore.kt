@@ -1,5 +1,6 @@
 package app.pocketinstall
 
+import app.pocketinstall.server.WinPeProgress
 import app.pocketinstall.server.HttpEvent
 import app.pocketinstall.server.TftpEvent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +16,9 @@ data class ServerSnapshot(
     val requests: Long = 0,
     val clientsSeen: Int = 0,
     val events: List<HttpEvent> = emptyList(),
-    val message: String = "Démarre une session pour le test EFI.",
+    val message: String = "Importe l’environnement Windows PE, puis démarre le serveur.",
     val winPeMode: Boolean = false,
+    val winPeProgress: WinPeProgress = WinPeProgress(),
     val importingWinPe: Boolean = false,
     val loaderUrl: String = "",
     val usbMode: Boolean = false,

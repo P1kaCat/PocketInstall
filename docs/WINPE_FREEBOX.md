@@ -1,101 +1,49 @@
-# Charger Windows PE depuis PocketInstall et une Freebox
+# Windows PE avec Freebox Révolution
 
-Cette étape ouvre une console Windows PE x64 en RAM. Elle ne contient pas
-l'installateur complet Windows et ne lance aucune commande de partitionnement.
-WinPE peut détecter et monter les disques présents. Le démarrage WinPE physique
-reste à valider ; le succès du petit POC EFI ne valide pas cette nouvelle chaîne.
+## Première configuration
 
-## Télécharger le bundle préparé dans la release
+Télécharger dans la release privée : l'APK, `PocketInstall-WinPE-x64.zip` et **le nouveau** `snponly.efi`. L'ancien chargeur 0.2.0 ouvrait seulement une console ; remplacer ce fichier est indispensable. Le bundle de cette version inclut WinPE x64 avec PowerShell pour signaler son démarrage. Le ZIP est importable directement, aucun autre ordinateur Windows n'est nécessaire.
 
-La release privée `v0.2.0-winpe-preview` fournit `PocketInstall-WinPE-x64.zip`,
-construit automatiquement sur un runner Windows GitHub avec l'ADK Microsoft,
-ainsi que `snponly.efi`. Télécharge le ZIP sur le téléphone et passe directement
-à **Téléphone et Freebox** ci-dessous. Tu n'as pas besoin d'un autre PC Windows.
-Le chargeur publié ouvre directement la console iPXE : saisir `dhcp` puis `chain`
-avec l'URL affichée par l'application. Les sources des chargeurs sont jointes.
-Le ZIP ne contient ni l'installateur complet Windows ni l'image install.wim.
+1. Téléphone sur le Wi-Fi LAN de la Freebox. Importer le ZIP dans PocketInstall. Attendre la validation des tailles, SHA-256, architecture EFI, WIM et routes HTTP. L'import ne démarre aucun serveur.
+2. Appuyer sur **Démarrer · attendre le PC**. Le serveur teste de nouveau les routes sur la véritable interface LAN avant d'afficher « serveur démarré ».
+3. Ouvrir **Configuration Freebox · une seule fois**. Dans Freebox OS, réserver l'IP indiquée pour le téléphone (par exemple `192.168.0.35`). La Freebox reste le DHCP ; ne pas changer ses plages/DNS pour ce test.
+4. Enregistrer `pocketinstall.ipxe` depuis l'appli. Déposer ce fichier et le nouveau `snponly.efi` dans `/Disque dur/PocketInstall` via l'explorateur Freebox OS. Ils restent côte à côte, sans sous-dossier ni extension `.txt` ajoutée.
+5. Freebox OS → Partage de fichiers → TFTP : activer, racine `/Disque dur/PocketInstall`. Réseau local → DHCP → Démarrage par TFTP : serveur = **IP Freebox** (`192.168.0.254` dans l'installation testée), fichier = `snponly.efi`. Appliquer.
+6. PC connecté par Ethernet, démarrer UEFI PXE IPv4. Le chargeur iPXE non signé nécessite une politique Secure Boot compatible.
 
-## Option : préparer un bundle personnalisé sur un PC Windows
+La box est configurée manuellement par l'utilisateur. PocketInstall ne l'administre pas et ne crée pas de DHCP.
 
-Installer l'ADK Microsoft (Deployment Tools) et son add-on Windows PE de même
-version. Dans PowerShell administrateur, depuis le dépôt :
+## Démarrages suivants
 
-```powershell
-.\scripts\Build-WinPE.ps1 -WorkDirectory C:\PocketInstall-WinPE -OutputDirectory C:\PocketInstall-Bundle
-```
+Appuyer sur Démarrer dans PocketInstall puis démarrer le PC en PXE. Rien à saisir sur le PC. iPXE obtient une IP par DHCP, lit `pocketinstall.ipxe` depuis le TFTP Freebox, puis contacte `http://IP_TELEPHONE:8080/boot.ipxe`. Ce point d'entrée sert un script contenant automatiquement le token courant et les URLs de wimboot, bootmgfw.efi, BCD, boot.sdi, boot.wim et des fichiers de démarrage injectés par wimboot. Une session différente ne nécessite aucune modification Freebox.
 
-Il faut une machine Windows de préparation ; la Freebox et Android ne fabriquent
-pas eux-mêmes l'image Microsoft. Les scripts refusent les dossiers de sortie
-existants. Les fichiers Microsoft ne sont pas inclus dans le dépôt.
+Si l'IP du téléphone change malgré la réservation, exporter à nouveau `pocketinstall.ipxe` et remplacer ce fichier sur la Freebox. Le chargeur réessaie la connexion si le téléphone n'est pas encore prêt. La session expire au bout de 30 minutes.
 
-Récupérer `wimboot` et un `snponly.efi` **x64 standard avec console iPXE** depuis
-les sources officielles iPXE. Conserver leurs licences et vérifier les SHA-256
-attendus via une source fiable ; un hash calculé sur le téléchargement seul
-ne prouve pas son origine. Le parcours ci-dessous utilise un chargeur non signé
-et ne met pas en place une chaîne Secure Boot signée.
+## Progression et preuve de démarrage
 
-```powershell
-.\scripts\Package-WinPE.ps1 -BundleDirectory C:\PocketInstall-Bundle `
-  -Wimboot C:\Loaders\wimboot -WimbootSha256 HASH_ATTENDU_WIMBOOT `
-  -Ipxe C:\Loaders\snponly.efi -IpxeSha256 HASH_ATTENDU_IPXE `
-  -OutputZip C:\PocketInstall-WinPE.zip
-```
+L'application affiche : attente → PC détecté → iPXE connecté → chargement → image envoyée, démarrage à confirmer. Elle annonce un démarrage seulement après réception du signal émis **depuis WinPE**, après `wpeinit`, pour le PC ayant reçu les fichiers complets. Un HEAD, une requête partielle, une erreur ou le téléchargement du WIM ne suffisent pas.
 
-L'archive contient uniquement `boot.wim`, `boot.sdi`, `BCD`, `bootmgfw.efi`,
-`wimboot`, `snponly.efi` et `manifest.json`, sans sous-dossier. Limite totale
-décompressée : 2 Gio ; les fichiers autres que le WIM sont limités à 16 Mio.
-Prévoir la place pour le ZIP et son contenu décompressé sur le téléphone.
+Le signal est une notification de fonctionnement sur le LAN, pas une attestation cryptographique. La preuve matérielle reste le message `PocketInstall boot successful (WinPE)` et la console Windows PE sur l'écran du PC. Un pilote réseau absent dans WinPE peut empêcher la notification alors que la console fonctionne ; vérifier l'écran et les pilotes.
 
-## Téléphone et Freebox
+Les fichiers `winpeshl.ini` et `pocketinstall.cmd` sont générés par l'application et injectés par wimboot dans `X:\Windows\System32`. Ils lancent `wpeinit`, affichent le succès, envoient le signal HTTP via PowerShell si disponible, puis laissent la console ouverte. Aucun Windows Setup, diskpart, formatage ou réparation de boot n'est exécuté. Windows PE peut monter les disques.
 
-1. Copier le ZIP sur le téléphone. Arrêter la session actuelle, choisir le réseau
-   LAN, puis **Importer le bundle WinPE**. L'import vérifie les tailles, les
-   SHA-256 et les en-têtes WIM/EFI x64. Le manifeste n'est pas une signature.
-2. Appuyer sur **Démarrer WinPE · Freebox**. Garder le téléphone sur le même LAN.
-3. Copier l'URL du chargeur affichée, la télécharger dans le navigateur, puis
-   uploader le fichier sous le nom exact `snponly.efi` dans le dossier TFTP
-   Freebox, par exemple `/Disque dur/PocketInstall`.
-4. Dans Freebox OS, garder cette racine TFTP et régler DHCP :
+## Diagnostic avancé
 
-| Champ | Valeur pour le réseau testé |
-|---|---|
-| Serveur TFTP | `192.168.0.254` (Freebox) |
-| Fichier de démarrage | `snponly.efi` |
-| Serveur HTTP WinPE | `192.168.0.35:8080` si le téléphone conserve cette IP |
+Les IP, URLs de session, requêtes et commandes sont disponibles dans l'application. En cas de dépannage seulement : Ctrl+B pendant le démarrage du nouveau chargeur, puis `dhcp` et `chain URL_EXACTE_DE_L_APPLICATION`. Une ancienne URL de session est volontairement refusée. `boot.ipxe` est servi par le téléphone ; il ne faut pas le déposer sur le TFTP. Seuls `snponly.efi` et `pocketinstall.ipxe` y sont déposés.
 
-Le serveur TFTP de la Freebox sert le chargeur ; le téléphone sert les fichiers
-WinPE par HTTP. Aucune redirection de port Internet n'est nécessaire.
+- Console iPXE sans automatisation : ancien snponly.efi encore utilisé.
+- Message configuration absente : vérifier pocketinstall.ipxe et la racine TFTP.
+- HTTP 404 : session périmée, fichier absent ou nom incorrect ; voir le nom de route dans les journaux.
+- HTTP 500 : erreur d'ouverture d'une ressource ; réimporter et relancer. Une erreur interne n'est plus masquée en 404.
+- Transfert interrompu : vérifier LAN, maintien du serveur Android et écran du téléphone ; redémarrer le PC en PXE.
+- Windows Boot Manager échoue : contrôler mémoire, architecture x64, pilotes et Secure Boot. Fournir l'écran exact.
 
-5. Démarrer le PC en Ethernet, **UEFI PXE IPv4**. Adapter Secure Boot au chargeur
-   non signé. Dans iPXE, appuyer sur **Ctrl+B** puis saisir :
+Le point d'entrée stable est accessible uniquement sur l'interface et le sous-réseau privés sélectionnés, pendant la session. Les fichiers restent derrière le token ; ce point d'entrée le distribue aux clients LAN. Ne pas rediriger 8080 vers Internet.
 
-```text
-dhcp
-chain URL_DU_SCRIPT_AFFICHEE_DANS_L_APPLI
-```
+## Validation du projet
 
-Utiliser l'URL exacte de la session active, terminée par `/winpe/boot.ipxe`.
-Elle change à chaque session. Le script charge wimboot puis le gestionnaire EFI,
-le BCD, le SDI et le WIM. En cas d'échec, il revient à une console iPXE.
+Tests Kotlin utilisant le même assemblage de routes qu'Android : script complet, fichiers, sondes HTTP, expiration des tokens, route stable, erreurs et progression. Workflow GitHub : vrai bundle Microsoft ADK, compilation/lint APK et VM OVMF sans disque. Le test VM nécessite le signal exécuté dans WinPE et conserve écran/journaux ; il ne passe pas sur une simple requête HTTP. Il ne remplace pas un test sur le PC physique.
 
-6. Le critère de succès est la console **PocketInstall boot successful (WinPE)**
-   visible sur le PC après `wpeinit`. Les journaux HTTP seuls ne prouvent pas
-   l'exécution. La console reste ouverte : `wpeutil shutdown` éteint le PC.
-   Si le réseau manque sous WinPE, préparer le bundle avec les pilotes NIC ADK.
+Personnalisation facultative : `scripts/Build-WinPE.ps1 -WithPowerShell` sur Windows avec ADK/add-on compatibles, puis `scripts/Package-WinPE.ps1`. Les pilotes réseau propres au PC peuvent être ajoutés avec `-DriverDirectory`.
 
-La session HTTP s'arrête après 30 minutes ou perte du réseau. L'environnement
-déjà chargé en RAM continue à fonctionner. Restaurer les paramètres DHCP de boot
-Freebox après l'essai. Les bundles importés précédemment restent dans le stockage
-privé pour éviter de modifier des fichiers servis ; effacer les données de
-l'application les supprime tous.
-
-## Sources et validation
-
-- [iPXE : démarrer WinPE avec wimboot](https://ipxe.org/howto/winpe)
-- [iPXE : téléchargement des chargeurs](https://ipxe.org/download)
-- [Microsoft : créer un support Windows PE](https://learn.microsoft.com/windows-hardware/manufacture/desktop/winpe-create-usb-bootable-drive)
-- [Microsoft : monter et personnaliser WinPE](https://learn.microsoft.com/windows-hardware/manufacture/desktop/winpe-mount-and-customize)
-
-Les tests JVM couvrent l'import et le protocole HTTP/TFTP. La préparation ADK,
-la signature firmware et l'exécution du WIM doivent être testées avec de vrais
-fichiers Microsoft avant de déclarer cette étape prête pour une installation.
+Références primaires iPXE : https://ipxe.org/embed ; https://ipxe.org/howto/winpe ; https://ipxe.org/wimboot (fichiers injectés). Microsoft ADK : https://learn.microsoft.com/windows-hardware/get-started/adk-install

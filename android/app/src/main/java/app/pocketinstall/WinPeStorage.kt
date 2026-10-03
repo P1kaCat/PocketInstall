@@ -1,6 +1,7 @@
 package app.pocketinstall
 
 import android.content.Context
+import app.pocketinstall.server.WinPeHttp
 import app.pocketinstall.server.WinPeBundle
 import app.pocketinstall.server.WinPeEntry
 import org.json.JSONObject
@@ -32,6 +33,9 @@ object WinPeStorage {
         val id = UUID.randomUUID().toString()
         val directory = File(parent, id)
         WinPeBundle.extract(input, directory, ::decode)
+        try { WinPeHttp.preflight(directory) } catch (e: Exception) {
+            directory.deleteRecursively(); throw e
+        }
         if (!preferences(context).edit().putString("bundle", id).commit()) {
             directory.deleteRecursively()
             error("Impossible d'enregistrer le bundle.")

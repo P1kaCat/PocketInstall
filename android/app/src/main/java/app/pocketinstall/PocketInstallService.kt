@@ -21,6 +21,7 @@ import app.pocketinstall.server.BootResource
 import app.pocketinstall.server.Ipv4Subnet
 import app.pocketinstall.server.LocalHttpServer
 import app.pocketinstall.server.LocalTftpServer
+import app.pocketinstall.server.WinPeHttp
 import app.pocketinstall.server.WinPeBundle
 import app.pocketinstall.server.RequestPhase
 import kotlinx.coroutines.CoroutineScope
@@ -99,24 +100,14 @@ class PocketInstallService : Service() {
         val length = assets.openFd("boot/bootx64.efi").use { it.length }
         val subnet = Ipv4Subnet(lan.address, lan.prefix)
         val resources = mutableMapOf("bootx64.efi" to BootResource(length, "application/efi") { assets.open("boot/bootx64.efi") })
-        lateinit var http: LocalHttpServer
-        if (winPe) {
-            val directory = WinPeStorage.current(this) ?: error("Importe un bundle WinPE d'abord.")
-            WinPeStorage.verify(directory)
-            for (name in WinPeBundle.names) {
-                val file = java.io.File(directory, name)
-                resources["winpe/$name"] = BootResource(file.length(), "application/octet-stream") { file.inputStream() }
-            }
-            val address = checkNotNull(lan.address.hostAddress)
-            val sample = WinPeBundle.script("http://$address:8080/${"0".repeat(32)}")
-            resources["winpe/boot.ipxe"] = BootResource(sample.size.toLong(), "text/plain") {
-                WinPeBundle.script("http://$address:${http.port}/${http.session}").inputStream()
-            }
-        }
-        http = LocalHttpServer(lan.address, subnet, resources,
+        val directory = if (winPe) WinPeStorage.current(this)?.also { WinPeStorage.verify(it) }
+            ?: error("Importe un bundle WinPE d'abord.") else null
+        val http = LocalHttpServer(lan.address, subnet, if (winPe) emptyMap() else resources,
+            resourceFactory = if (directory != null) ({ base -> WinPeHttp.resources(directory, base) }) else null,
+            publicAliases = if (winPe) WinPeHttp.aliases else emptyMap(),
             monotonicMillis = { SystemClock.elapsedRealtime() },
             onEvent = { event ->
-                if (stopping.get()) return@LocalHttpServer
+                if (stopping.get() || event.peer == lan.address.hostAddress) return@LocalHttpServer
                 val now = System.currentTimeMillis()
                 if (event.phase == RequestPhase.STARTED && event.status in listOf(200, 206)) {
                     if (peers.size < 128 || peers.containsKey(event.peer)) peers[event.peer] = now
@@ -125,7 +116,8 @@ class PocketInstallService : Service() {
                 ServerStore.mutable.update { old ->
                     val entries = old.events.filterNot { it.id == event.id } + event
                     old.copy(requests = old.requests + if (event.phase == RequestPhase.STARTED) 1 else 0,
-                        clientsSeen = peers.size, events = entries.takeLast(50))
+                        clientsSeen = peers.size, events = entries.takeLast(50),
+                        winPeProgress = if (winPe) old.winPeProgress.accept(event) else old.winPeProgress)
                 }
             }, onStop = { reason -> stopSession(reason) })
         server = http
@@ -138,6 +130,7 @@ class PocketInstallService : Service() {
                 .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketInstall:LAN").apply { acquire() }
         }
         http.start()
+        if (directory != null) WinPeHttp.check(http, lan.address, directory)
         if (stopping.get()) return@synchronized
         if (pxe) {
             fun createTftp(port: Int) = LocalTftpServer(lan.address, subnet, resources,
@@ -175,9 +168,9 @@ class PocketInstallService : Service() {
             }
         }
         ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
-            url = if (winPe) http.bootUrl.removeSuffix("bootx64.efi") + "winpe/boot.ipxe" else http.bootUrl,
-            loaderUrl = if (winPe) http.bootUrl.removeSuffix("bootx64.efi") + "winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
-            message = if (winPe) "WinPE prêt par HTTP. Suis les étapes Freebox et iPXE ci-dessous." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
+            url = if (winPe) "${http.baseUrl}/winpe/boot.ipxe" else http.bootUrl,
+            loaderUrl = if (winPe) "${http.baseUrl}/winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
+            message = if (winPe) "Serveur démarré · routes WinPE vérifiées. Démarre le PC en PXE." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
                 else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
                 else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
     }

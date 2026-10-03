@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Build pinned iPXE x64 console loader
+      - name: Build pinned iPXE x64 automatic Freebox loader
         shell: bash
         run: |
           sudo apt-get update -qq
@@ -19,8 +19,8 @@ jobs:
           mkdir -p loader-out
           git clone https://github.com/ipxe/ipxe.git ipxe-source
           git -C ipxe-source checkout --detach 6262f1081fe185564e8ec8365a1d23597ec6e6f5
-          printf '#!ipxe\nshell\n' > ipxe-source/src/pocketinstall-console.ipxe
-          make -C ipxe-source/src -j2 bin-x86_64-efi/snponly.efi EMBED=pocketinstall-console.ipxe
+          cp winpe/loader.ipxe ipxe-source/src/pocketinstall-loader.ipxe
+          make -C ipxe-source/src -j2 bin-x86_64-efi/snponly.efi EMBED=pocketinstall-loader.ipxe
           cp ipxe-source/src/bin-x86_64-efi/snponly.efi loader-out/snponly.efi
           git -C ipxe-source clean -fdX
           tar --exclude=.git --exclude='bin-*' --exclude=bin -czf loader-out/iPXE-source.tar.gz ipxe-source
@@ -55,7 +55,7 @@ jobs:
       - name: Build WinPE console and package import ZIP
         shell: pwsh
         run: |
-          ./scripts/Build-WinPE.ps1 -WorkDirectory C:\PocketInstall-WinPE -OutputDirectory C:\PocketInstall-Bundle
+          ./scripts/Build-WinPE.ps1 -WithPowerShell -WorkDirectory C:\PocketInstall-WinPE -OutputDirectory C:\PocketInstall-Bundle
           New-Item -ItemType Directory -Path winpe-out | Out-Null
           $wimbootHash = (Get-FileHash loader-out/wimboot -Algorithm SHA256).Hash
           $ipxeHash = (Get-FileHash loader-out/snponly.efi -Algorithm SHA256).Hash
@@ -69,5 +69,43 @@ jobs:
         with:
           name: winpe-ready
           path: winpe-out/*
+          if-no-files-found: error
+          retention-days: 14
+  vm:
+    needs: winpe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-ready
+          path: winpe-out
+      - name: Boot actual WinPE via automatic PXE and Kotlin HTTP
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf python3-pil
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+          (cd android && bash gradlew --no-daemon --console=plain :server-core:installDist)
+          python3 scripts/verify_winpe_bundle.py winpe-out/PocketInstall-WinPE-x64.zip
+          python3 scripts/qemu_winpe_boot.py --bundle winpe-out/PocketInstall-WinPE-x64.zip --server-command '["java","-cp","android/server-core/build/install/server-core/lib/*","app.pocketinstall.server.WinPeVmMainKt","{bundle}","{output}"]'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: winpe-vm-evidence
+          path: |
+            winpe-vm/result.json
+            winpe-vm/screen.png
+            winpe-vm/http.log
+            winpe-vm/serial.log
+            winpe-vm/qemu.log
+            winpe-vm/server.log
           if-no-files-found: error
           retention-days: 14

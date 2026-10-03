@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 data class BootResource(val length: Long, val contentType: String, val open: () -> InputStream)
-enum class RequestPhase { STARTED, FINISHED }
+enum class RequestPhase { STARTED, PROGRESS, FINISHED }
 data class HttpEvent(
     val id: Long, val atMillis: Long, val peer: String, val method: String,
     val resource: String, val status: Int, val phase: RequestPhase,
@@ -35,6 +35,8 @@ class LocalHttpServer(
     private val bind: Inet4Address,
     private val subnet: Ipv4Subnet,
     private val resources: Map<String, BootResource>,
+    private val resourceFactory: ((String) -> Map<String, BootResource>)? = null,
+    private val publicAliases: Map<String, String> = emptyMap(),
     private val requestedPort: Int = 8080,
     private val lifetimeMillis: Long = 30 * 60 * 1000L,
     private val allowLoopbackForTests: Boolean = false,
@@ -48,7 +50,10 @@ class LocalHttpServer(
         require(subnet.contains(bind))
         require((Ipv4Subnet.isPrivate(bind) && subnet.isPrivate) ||
             (allowLoopbackForTests && bind.isLoopbackAddress && subnet.prefix >= 8))
-        require(resources.isNotEmpty())
+        require(resources.isNotEmpty() || resourceFactory != null)
+        publicAliases.forEach { (path, target) ->
+            require(path == "/boot.ipxe" && target == "winpe/boot.ipxe")
+        }
         resources.forEach { (name, r) ->
             require(name.matches(Regex("[A-Za-z0-9][A-Za-z0-9._/-]{0,160}")) &&
                 !name.contains("..") && !name.endsWith('/'))
@@ -57,6 +62,7 @@ class LocalHttpServer(
     }
 
     val session: String = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
+    @Volatile private var activeResources = resources.toMap()
     private val running = AtomicBoolean(false)
     private val started = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
@@ -70,7 +76,8 @@ class LocalHttpServer(
         Thread(task, "PocketInstall-expiry").apply { isDaemon = true }
     }
     val port: Int get() = listener.localPort
-    val bootUrl: String get() = "http://${bind.hostAddress}:$port/$session/bootx64.efi"
+    val baseUrl: String get() = "http://${bind.hostAddress}:$port/$session"
+    val bootUrl: String get() = "$baseUrl/bootx64.efi"
     val isRunning: Boolean get() = running.get() && monotonicMillis() < deadlineMillis
 
     fun start() {
@@ -79,6 +86,13 @@ class LocalHttpServer(
             listener.reuseAddress = false
             listener.bind(InetSocketAddress(bind, requestedPort), 8)
             listener.soTimeout = 1000
+            activeResources = resourceFactory?.invoke(baseUrl)?.toMap() ?: resources.toMap()
+            require(activeResources.isNotEmpty())
+            activeResources.forEach { (name, r) ->
+                require(name.matches(Regex("[A-Za-z0-9][A-Za-z0-9._/-]{0,160}")) && !name.contains("..") && !name.endsWith('/'))
+                require(r.length >= 0 && r.contentType.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+")))
+            }
+            require(publicAliases.values.all { it in activeResources })
             deadlineMillis = monotonicMillis() + lifetimeMillis
             running.set(true)
             expiry.schedule({ stop("Session expirée (30 minutes maximum).") }, lifetimeMillis, TimeUnit.MILLISECONDS)
@@ -187,7 +201,7 @@ class LocalHttpServer(
             expected = length
             val reason = mapOf(200 to "OK", 206 to "Partial Content", 400 to "Bad Request",
                 403 to "Forbidden", 404 to "Not Found", 405 to "Method Not Allowed",
-                408 to "Request Timeout", 416 to "Range Not Satisfiable", 431 to "Request Header Fields Too Large")
+                500 to "Internal Server Error", 408 to "Request Timeout", 416 to "Range Not Satisfiable", 431 to "Request Header Fields Too Large")
             val text = "HTTP/1.1 $code ${reason[code] ?: "Error"}\r\n" +
                 "Content-Length: $length\r\nContent-Type: $type\r\nConnection: close\r\n" +
                 "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n" +
@@ -207,10 +221,10 @@ class LocalHttpServer(
             val prefix = "/$session/"
             if (!request.path.startsWith('/') || request.path.any { it in "%?#\\" } || ".." in request.path)
                 throw Rejected(400)
-            if (!request.path.startsWith(prefix)) throw Rejected(404)
-            val key = request.path.removePrefix(prefix)
-            val resource = resources[key] ?: throw Rejected(404)
+            val key = publicAliases[request.path] ?: if (request.path.startsWith(prefix)) request.path.removePrefix(prefix)
+                else { name = "session incorrecte ou expirée"; throw Rejected(404) }
             name = key
+            val resource = activeResources[key] ?: throw Rejected(404)
             val range = try { range(request.headers["range"], resource.length) }
                 catch (e: Rejected) {
                     header(e.status, extra = "Content-Range: bytes */${resource.length}\r\n")
@@ -231,12 +245,16 @@ class LocalHttpServer(
                 if (method == "GET") {
                     val buffer = ByteArray(65536)
                     var left = range.length
+                    var lastProgress = monotonicMillis()
                     while (left > 0 && isRunning) {
                         val n = stream.read(buffer, 0, minOf(left, buffer.size.toLong()).toInt())
                         if (n <= 0) break
                         output.write(buffer, 0, n)
                         left -= n
                         sent += n
+                        if (monotonicMillis() - lastProgress >= 250) {
+                            event(RequestPhase.PROGRESS); lastProgress = monotonicMillis()
+                        }
                     }
                     output.flush()
                 }
@@ -246,7 +264,7 @@ class LocalHttpServer(
         } catch (_: SocketTimeoutException) {
             if (!responded) runCatching { header(408) }
         } catch (_: Exception) {
-            if (!responded) runCatching { header(404) }
+            if (!responded) runCatching { header(500) }
         } finally {
             event(RequestPhase.FINISHED)
         }
