@@ -23,7 +23,7 @@ fun WinPePanel(state: ServerSnapshot, canStart: Boolean, onStart: () -> Unit, on
     val scope = rememberCoroutineScope()
     var ready by remember { mutableStateOf(WinPeStorage.current(context) != null) }
     var importing by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Importer le ZIP préparé avec scripts/Package-WinPE.ps1 (maximum 2 Gio).") }
+    var message by remember { mutableStateOf("Importe PocketInstall-WinPE-x64.zip fourni dans la release (maximum 2 Gio).") }
     val busy = importing || state.importingWinPe
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -51,7 +51,7 @@ fun WinPePanel(state: ServerSnapshot, canStart: Boolean, onStart: () -> Unit, on
                 Text("1. Télécharger le chargeur ci-dessous et remplacer le fichier de démarrage Freebox par snponly.efi. Serveur TFTP : IP de la Freebox (192.168.0.254 chez toi).")
                 Text(state.loaderUrl)
                 Button(onClick = { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("iPXE loader", state.loaderUrl)) }) { Text("Copier l'URL du chargeur") }
-                Text("2. PC en Ethernet, UEFI PXE IPv4. Ce chargeur non signé exige une politique Secure Boot compatible. Dans iPXE, Ctrl+B, puis saisir ces deux commandes :")
+                Text("2. PC en Ethernet, UEFI PXE IPv4. Ce chargeur non signé exige une politique Secure Boot compatible. À l'invite iPXE (Ctrl+B si nécessaire), saisir ces deux commandes :")
                 Text("dhcp\nchain ${state.url}")
                 Button(onClick = { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("iPXE chain", "chain ${state.url}")) }) { Text("Copier la commande chain") }
                 Text("Cette URL change à chaque session. WinPE peut monter les disques. Le script ouvre une console ; il ne lance ni formatage ni installation.")
