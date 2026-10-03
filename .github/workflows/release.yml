@@ -11,17 +11,93 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: pocketinstall-release
   cancel-in-progress: false
 
 jobs:
+  tested_bundle:
+    runs-on: ubuntu-24.04
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Find an already validated identical payload
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo = os.environ["GITHUB_REPOSITORY"]
+          def api(path):
+              return json.loads(subprocess.check_output(["gh", "api", "repos/" + repo + "/" + path], text=True))
+          def payload(sha):
+              tree = api("git/commits/" + sha)["tree"]["sha"]
+              return {e["path"]: (e["mode"], e["type"], e["sha"]) for e in api("git/trees/" + tree)["tree"] if e["path"] != ".github"}
+          current = payload(os.environ["GITHUB_SHA"])
+          selected = 0
+          for run in api("actions/workflows/validate.yml/runs?status=success&per_page=20")["workflow_runs"]:
+              if run["conclusion"] != "success" or payload(run["head_sha"]) != current:
+                  continue
+              artifacts = api("actions/runs/" + str(run["id"]) + "/artifacts")["artifacts"]
+              names = {a["name"] for a in artifacts if not a["expired"]}
+              if {"winpe-ready", "winpe-vm-evidence"} <= names:
+                  selected = run["id"]
+                  break
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("run_id=" + str(selected) + "\n")
+          print("Validated bundle run:", selected, "(0 means a fresh build is required)")
+          PY
   winpe:
+    needs: tested_bundle
+    if: needs.tested_bundle.outputs.run_id == '0'
     uses: ./.github/workflows/build-winpe.yml
+  reuse:
+    needs: tested_bundle
+    if: needs.tested_bundle.outputs.run_id != '0'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-ready
+          path: tested-bundle
+          run-id: ${{ needs.tested_bundle.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-vm-evidence
+          path: tested-evidence
+          run-id: ${{ needs.tested_bundle.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify bundle and actual WinPE boot result
+        shell: bash
+        run: |
+          python3 scripts/verify_winpe_bundle.py tested-bundle/PocketInstall-WinPE-x64.zip
+          python3 - <<'PY'
+          import json
+          result = json.load(open("tested-evidence/result.json"))
+          assert result["success"] and result["winpe_runtime_callback"] and result["guest_disks"] == 0
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winpe-ready
+          path: tested-bundle/*
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winpe-vm-evidence
+          path: tested-evidence/*
+          if-no-files-found: error
   publish:
-    needs: winpe
-    if: github.repository == 'P1kaCat/PocketInstall' && github.ref == 'refs/heads/main'
+    needs: [winpe, reuse]
+    if: always() && (needs.winpe.result == 'success' || needs.reuse.result == 'success') && github.repository == 'P1kaCat/PocketInstall' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -108,6 +184,12 @@ jobs:
         with:
           name: winpe-ready
           path: winpe-ready
+      - name: Fetch actual WinPE VM evidence
+        if: steps.existing.outputs.skip != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-vm-evidence
+          path: winpe-evidence
       - name: Verify signature and prepare assets
         if: steps.existing.outputs.skip != 'true'
         env:
@@ -122,11 +204,14 @@ jobs:
             --aapt "${ANDROID_HOME}/build-tools/36.0.0/aapt"
           python3 scripts/verify_winpe_bundle.py winpe-ready/PocketInstall-WinPE-x64.zip
           cp winpe-ready/* release-out/
+          for file in winpe-evidence/*; do cp "$file" "release-out/WINPE-VM-$(basename "$file")"; done
           python3 - <<'PY'
           import hashlib, json, pathlib
           root = pathlib.Path("release-out")
           manifest = json.loads((root / "release.json").read_text())
-          manifest["winpe"] = {"bundle": "PocketInstall-WinPE-x64.zip", "installsWindows": False, "physicalBootTested": False, "adkBuildValidated": True}
+          vm = json.loads(pathlib.Path("winpe-evidence/result.json").read_text())
+          assert vm["success"] and vm["winpe_runtime_callback"] and vm["guest_disks"] == 0
+          manifest["winpe"] = {"bundle": "PocketInstall-WinPE-x64.zip", "installsWindows": False, "physicalBootTested": False, "adkBuildValidated": True, "vmBootValidated": True, "automaticPxeValidated": True}
           manifest["artifacts"] = [{"name": p.name, "bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.iterdir()) if p.name not in ("SHA256SUMS", "release.json")]
           (root / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
           (root / "SHA256SUMS").write_text("".join(hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n" for p in sorted(root.iterdir()) if p.name != "SHA256SUMS"))

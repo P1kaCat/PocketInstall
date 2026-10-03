@@ -111,6 +111,15 @@ initrd --name BCD ${'$'}{base}/winpe/BCD BCD || goto failed
 initrd --name boot.sdi ${'$'}{base}/winpe/boot.sdi boot.sdi || goto failed
 initrd --name boot.wim ${'$'}{base}/winpe/boot.wim boot.wim || goto failed
 initrd --name pocketinstall.cmd ${'$'}{base}/winpe/pocketinstall.cmd pocketinstall.cmd || goto failed
+initrd --name pocketinstall.ps1 ${' ${'$'}{base}/winpe/winpeshl.ini winpeshl.ini || goto failed
+boot || goto failed
+:failed
+echo PocketInstall - echec du chargement WinPE. Verifier le telephone et le LAN.
+shell
+""".toByteArray(Charsets.US_ASCII)
+    }
+}
+}{base}/winpe/pocketinstall.ps1 pocketinstall.ps1 || goto failed
 initrd --name winpeshl.ini ${'$'}{base}/winpe/winpeshl.ini winpeshl.ini || goto failed
 boot || goto failed
 :failed

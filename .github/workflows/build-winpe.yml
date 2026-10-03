@@ -1,10 +1,17 @@
 name: Build private WinPE bundle
 on:
   workflow_call:
+    inputs:
+      prepared_run_id:
+        type: number
+        default: 0
+        required: false
 permissions:
   contents: read
+  actions: read
 jobs:
   loaders:
+    if: inputs.prepared_run_id == 0
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -38,7 +45,7 @@ jobs:
   winpe:
     needs: loaders
     # Microsoft media is built for the owner of this private deployment repository.
-    if: github.event.repository.private == true
+    if: github.event.repository.private == true && inputs.prepared_run_id == 0
     runs-on: windows-2025
     timeout-minutes: 45
     steps:
@@ -71,8 +78,33 @@ jobs:
           path: winpe-out/*
           if-no-files-found: error
           retention-days: 14
+  reuse:
+    if: inputs.prepared_run_id > 0
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-ready
+          path: winpe-out
+          run-id: ${{ inputs.prepared_run_id }}
+          github-token: ${{ github.token }}
+      - name: Revalidate the prepared Microsoft image
+        run: |
+          python3 scripts/verify_winpe_bundle.py winpe-out/PocketInstall-WinPE-x64.zip
+          cp docs/WINPE_FREEBOX.md winpe-out/WINPE-GUIDE.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winpe-ready
+          path: winpe-out/*
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
   vm:
-    needs: winpe
+    needs: [winpe, reuse]
+    if: always() && (needs.winpe.result == 'success' || needs.reuse.result == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

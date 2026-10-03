@@ -8,7 +8,7 @@ import java.net.Socket
 /** The Android service, import preflight and VM use exactly this route assembly. */
 object WinPeHttp {
     val aliases = mapOf("/boot.ipxe" to "winpe/boot.ipxe")
-    val injected = setOf("boot.ipxe", "pocketinstall.cmd", "winpeshl.ini")
+    val injected = setOf("boot.ipxe", "pocketinstall.cmd", "pocketinstall.ps1", "winpeshl.ini")
     fun resources(directory: File, base: String): Map<String, BootResource> {
         val script = WinPeBundle.script(base) // Generate once, before advertising any URL.
         val result = WinPeBundle.names.associate { name ->
@@ -27,11 +27,34 @@ echo PocketInstall boot successful (WinPE)
 echo No installation or formatting has been requested.
 echo This command prompt remains available.
 if exist X:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe (
-  powershell.exe -NoLogo -NoProfile -Command "try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 '$base/winpe/started' | Out-Null } catch { Write-Host 'Boot confirmed on screen; phone notification unavailable.' }"
+  powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File X:\Windows\System32\pocketinstall.ps1
 ) else (
   echo Phone notification unavailable in this bundle. Confirm boot on this screen.
 )
 """.replace("\n", "\r\n").toByteArray(Charsets.US_ASCII))
+        val endpoint = java.net.URI(base)
+        text("pocketinstall.ps1", """
+§client = New-Object System.Net.Sockets.TcpClient
+try {
+  §client.ReceiveTimeout = 15000
+  §client.SendTimeout = 15000
+  §pending = §client.BeginConnect("${endpoint.host}", ${endpoint.port}, §null, §null)
+  if (-not §pending.AsyncWaitHandle.WaitOne(15000)) { throw "Connection timed out" }
+  §client.EndConnect(§pending)
+  §stream = §client.GetStream()
+  §request = [System.Text.Encoding]::ASCII.GetBytes("GET ${endpoint.rawPath}/winpe/started HTTP/1.1`r`nHost: ${endpoint.host}:${endpoint.port}`r`nConnection: close`r`n`r`n")
+  §stream.Write(§request, 0, §request.Length)
+  §reader = New-Object System.IO.StreamReader(§stream, [System.Text.Encoding]::ASCII)
+  §response = §reader.ReadToEnd()
+  if (-not §response.StartsWith("HTTP/1.1 200 ")) { throw "Notification refused" }
+  Write-Host "WinPE startup reported to PocketInstall."
+} catch {
+  Write-Host "Boot confirmed on screen; phone notification unavailable."
+  Write-Host §_.Exception.Message
+} finally {
+  §client.Close()
+}
+""".replace('§', '$').replace("\n", "\r\n").toByteArray(Charsets.US_ASCII))
         text("started", "WinPE startup signal received.\n".toByteArray(Charsets.US_ASCII))
         return result
     }
