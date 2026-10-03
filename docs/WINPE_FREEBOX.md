@@ -5,7 +5,17 @@ l'installateur complet Windows et ne lance aucune commande de partitionnement.
 WinPE peut détecter et monter les disques présents. Le démarrage WinPE physique
 reste à valider ; le succès du petit POC EFI ne valide pas cette nouvelle chaîne.
 
-## Préparer le bundle sur un PC Windows disponible
+## Télécharger le bundle préparé dans la release
+
+La release privée `v0.2.0-winpe-preview` fournit `PocketInstall-WinPE-x64.zip`,
+construit automatiquement sur un runner Windows GitHub avec l'ADK Microsoft,
+ainsi que `snponly.efi`. Télécharge le ZIP sur le téléphone et passe directement
+à **Téléphone et Freebox** ci-dessous. Tu n'as pas besoin d'un autre PC Windows.
+Le chargeur publié ouvre directement la console iPXE : saisir `dhcp` puis `chain`
+avec l'URL affichée par l'application. Les sources des chargeurs sont jointes.
+Le ZIP ne contient ni l'installateur complet Windows ni l'image install.wim.
+
+## Option : préparer un bundle personnalisé sur un PC Windows
 
 Installer l'ADK Microsoft (Deployment Tools) et son add-on Windows PE de même
 version. Dans PowerShell administrateur, depuis le dépôt :
