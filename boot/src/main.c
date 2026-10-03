@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT
+/* SPDX-License-Identifier: LicenseRef-PocketInstall-Personal-1.0
  * This is an EFI application, not a Windows installer.
  * Only console, timer, watchdog and shutdown services are used.
  */

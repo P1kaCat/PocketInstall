@@ -1,4 +1,9 @@
-# Binaires du POC 0.1.0
+# Binaires historiques du POC 0.1.0
+
+Cette version reste sous [MIT](LICENSE-MIT.txt). La nouvelle licence personnelle
+ne retire pas les droits qu'elle accordait. Utiliser la
+[release actuelle](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.1-poc)
+pour l'APK contenant la nouvelle licence.
 
 Ce dossier fournit les binaires déjà construits du prototype :
 

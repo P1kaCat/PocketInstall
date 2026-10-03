@@ -44,3 +44,15 @@ implémenter ce changement. Tests Android 16 LAN opt-in distincts du parcours no
 Le maintien écran éteint dépend de Doze et des politiques OEM ; tester sur le
 téléphone réel. La fermeture doit échouer de manière sûre après expiration et
 les requêtes vérifient aussi la deadline avec elapsedRealtime, qui inclut la veille.
+
+## Licence et publication
+
+Le bouton **Lire la licence** ouvre le texte embarqué de la licence personnelle.
+Les modifications privées pour usage personnel sont autorisées ; la
+redistribution nécessite un accord écrit. Les licences des composants tiers sont
+conservées dans les assets et ne sont pas remplacées.
+
+Le workflow [Release APK](../.github/workflows/release.yml) construit les versions,
+exécute les tests TCP et lint, vérifie la signature et les licences embarquées,
+puis crée une vraie release GitHub avec l'APK. Les détails de signature debug et
+les règles de publication sont dans [docs/RELEASING.md](../docs/RELEASING.md).

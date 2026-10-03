@@ -4,7 +4,7 @@ Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur 
 même LAN, via **UEFI HTTP Boot**, sans clé USB, câble téléphone–PC ou application
 préinstallée sur le PC.
 
-Cette livraison est le **POC 0.1.0**. Elle fournit un environnement EFI minimal,
+Cette livraison est le **POC 0.1.1**. Elle fournit un environnement EFI minimal,
 une application Android Kotlin/Compose, les tests réseau et la préparation de
 la future chaîne WinPE. Elle n'installe ni ne répare encore Windows.
 
@@ -48,10 +48,12 @@ distincts. Voir [research/FEASIBILITY.md](research/FEASIBILITY.md) et
 
 ## Essayer l'application
 
-Le dossier [releases/0.1.0-poc/](releases/0.1.0-poc/README.md) contient
-[PocketInstall-0.1.0-poc-debug.apk](releases/0.1.0-poc/PocketInstall-0.1.0-poc-debug.apk),
-le binaire EFI et leurs hashes. C'est un APK de développement pour Android 8+ ;
-aucun root, aucune connexion USB nécessaire.
+La [release GitHub v0.1.1-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.1-poc)
+fournit l'APK Android, le binaire EFI, la licence et leurs hashes.
+[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.1-poc/PocketInstall-0.1.1-poc-debug.apk).
+C'est un APK de développement pour Android 8+ ; aucun root ni câble USB requis.
+Si Android refuse la mise à jour du POC 0.1.0 pour signature différente,
+désinstaller cette ancienne version avant d'installer la nouvelle.
 
 1. Installer l'APK sur le téléphone et rejoindre un LAN Wi-Fi privé normal.
 2. Ouvrir PocketInstall, choisir le réseau et démarrer le test EFI.
@@ -141,6 +143,10 @@ clonage et les téléchargements. Le bundle Git conservé dans `releases/0.1.0-p
 identifie le commit source ayant servi à construire l'APK. Les caches de build,
 SDK et images Microsoft sont exclus du dépôt.
 
-Code PocketInstall : MIT. Notices GNU-EFI et dépendances Android incluses. Les
+Code PocketInstall actuel : [licence personnelle personnalisée](LICENSE).
+Modifications privées pour usage personnel autorisées ; redistribution de
+l'application et des versions modifiées interdite sans accord écrit.
+Les droits précédemment accordés sous MIT sur le POC 0.1.0 restent valables.
+Notices GNU-EFI et dépendances Android conservées. Les
 droits de redistribution WinPE/Windows doivent être examinés avant publication
 d'images : [docs/LICENSING.md](docs/LICENSING.md).

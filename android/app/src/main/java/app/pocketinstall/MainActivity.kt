@@ -12,6 +12,9 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +44,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -101,6 +107,23 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, chosen: Long,
     onChoose: (Long) -> Unit, onRefresh: () -> Unit, onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit) {
+    var licenseOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val licenseText = remember(context) {
+        context.assets.open("licenses/PocketInstall-Personal.txt").bufferedReader().use { it.readText() }
+    }
+    if (licenseOpen) {
+        AlertDialog(
+            onDismissRequest = { licenseOpen = false },
+            title = { Text("Licence PocketInstall") },
+            text = {
+                Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                    Text(licenseText, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { licenseOpen = false }) { Text("Fermer") } }
+        )
+    }
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -162,6 +185,9 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                 Text("Wi-Fi dans Windows ≠ Wi-Fi dans l'UEFI. Ce PC n'est probablement pas compatible avec Wireless PocketInstall si son firmware n'a pas le réseau Wi-Fi préboot.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 Text("POC EFI uniquement · aucune installation Windows pour l'instant.", Modifier.padding(top = 10.dp))
+                Text("Usage personnel et modifications privées autorisés. Redistribution soumise à accord écrit.",
+                    Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { licenseOpen = true }) { Text("Lire la licence") }
             }
         }
     }
