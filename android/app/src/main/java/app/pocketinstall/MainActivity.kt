@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private var pendingNetwork = ""
     private var pendingUsb = false
     private var pendingPxe = false
+    private var pendingWinPe = false
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Denied notifications do not prevent a foreground service; Android may
         // show it only in the active-apps/task manager surface.
@@ -93,13 +94,14 @@ class MainActivity : ComponentActivity() {
                     { pxeMode = it },
                     { chosen = it },
                     { networks = LanNetwork.candidates(this, usbMode); chosen = networks.firstOrNull()?.id ?: "" },
-                    { pendingNetwork = chosen; pendingUsb = usbMode; pendingPxe = pxeMode; requestStart() },
+                    { pendingNetwork = chosen; pendingUsb = usbMode; pendingPxe = pxeMode; pendingWinPe = false; requestStart() },
                     { startService(Intent(this, PocketInstallService::class.java).setAction(PocketInstallService.ACTION_STOP)) },
                     { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall Boot URL", state.url)) },
                     { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall PXE relay",
                         "python3 scripts/prepare_pxe_relay.py --boot-url '${state.url}' --relay-ip IP_DU_RELAIS --interface INTERFACE_ETHERNET --target-mac MAC_DU_PC --output pxe-relay")) },
                     { runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
-                        .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } })
+                        .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } },
+                    { pendingNetwork = chosen; pendingUsb = false; pendingPxe = false; pendingWinPe = true; requestStart() })
             }
         }
     }
@@ -112,7 +114,7 @@ class MainActivity : ComponentActivity() {
         try {
             ContextCompat.startForegroundService(this, Intent(this, PocketInstallService::class.java)
                 .setAction(PocketInstallService.ACTION_START).putExtra(PocketInstallService.EXTRA_CANDIDATE, candidate)
-                .putExtra(PocketInstallService.EXTRA_USB, usb).putExtra(PocketInstallService.EXTRA_PXE, pxe))
+                .putExtra(PocketInstallService.EXTRA_USB, usb).putExtra(PocketInstallService.EXTRA_PXE, pxe).putExtra(PocketInstallService.EXTRA_WINPE, pendingWinPe))
         } catch (e: Exception) {
             ServerStore.mutable.update { it.copy(status = ServerStatus.ERROR, message = "Démarrage refusé : ${e.javaClass.simpleName}.") }
         }
@@ -123,7 +125,7 @@ class MainActivity : ComponentActivity() {
 private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, chosen: String, selectedUsb: Boolean, selectedPxe: Boolean,
     onMode: (Boolean) -> Unit, onPxe: (Boolean) -> Unit,
     onChoose: (String) -> Unit, onRefresh: () -> Unit, onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit,
-    onCopyRelay: () -> Unit, onSettings: () -> Unit) {
+    onCopyRelay: () -> Unit, onSettings: () -> Unit, onWinPe: () -> Unit) {
     var licenseOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val licenseText = remember(context) {
@@ -157,7 +159,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                         Text(state.message)
                         if (state.status == ServerStatus.RUNNING) {
                             Text("IP : ${state.ip}", fontFamily = FontFamily.Monospace)
-                            Text(if (pxeMode) "URL du fichier pour le relais HTTP" else "Boot URL", style = MaterialTheme.typography.labelLarge)
+                            Text(if (state.winPeMode) "Script de chargement WinPE" else if (pxeMode) "URL du fichier pour le relais HTTP" else "Boot URL", style = MaterialTheme.typography.labelLarge)
                             Text(state.url, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
                             Button(onClick = onCopy) { Text("Copier l'URL") }
                             Text("LAN : ${state.subnet} · Arrêt automatique après 30 min")
@@ -228,9 +230,10 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     OutlinedButton(onClick = onRefresh) { Text("Actualiser les réseaux") }
                 }
             }
+            item { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
             item {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
-                else Button(onClick = onStart, enabled = networks.any { it.id == chosen },
+                else Button(onClick = onStart, enabled = !state.importingWinPe && networks.any { it.id == chosen },
                     modifier = Modifier.fillMaxWidth()) { Text("Démarrer le test EFI") }
             }
             item {
@@ -257,14 +260,14 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                 }
             }
             item {
-                Text("Premier test", style = MaterialTheme.typography.titleMedium)
-                Text(if (pxeMode) "1. Téléphone sur le LAN et PC en Ethernet.\n2. Choisir UEFI PXE IPv4, pas Legacy PXE.\n3. Configurer DHCP/TFTP ou préparer le relais Linux.\n4. Adapter Secure Boot au test EFI non signé.\n5. Lire le succès sur le PC, puis arrêt automatique."
+                Text(if (state.winPeMode) "Validation WinPE" else "Premier test", style = MaterialTheme.typography.titleMedium)
+                Text(if (state.winPeMode) "Suivre la carte Windows PE ci-dessus. Le succès doit apparaître dans la console WinPE du PC. Les transferts HTTP seuls ne prouvent pas le démarrage." else if (pxeMode) "1. Téléphone sur le LAN et PC en Ethernet.\n2. Choisir UEFI PXE IPv4, pas Legacy PXE.\n3. Configurer DHCP/TFTP ou préparer le relais Linux.\n4. Adapter Secure Boot au test EFI non signé.\n5. Lire le succès sur le PC, puis arrêt automatique."
                     else if (usbMode) "1. Câble USB de données.\n2. Partage USB activé dans Android.\n3. Réseau USB reconnu par l’UEFI et HTTP Boot disponible.\n4. Saisir l’URL exacte ; POC non signé.\n5. Lire le succès sur le PC, puis arrêt automatique." else "1. Même LAN pour le PC et le téléphone.\n2. UEFI HTTP Boot, URL manuelle.\n3. POC non signé : politique Secure Boot adaptée.\n4. Saisir l'URL exacte.\n5. Lire le succès sur le PC, puis arrêt automatique.")
-                if (!usbMode && !pxeMode) Text("Wi-Fi dans Windows ≠ Wi-Fi dans l'UEFI. Ce PC n'est probablement pas compatible avec Wireless PocketInstall si son firmware n'a pas le réseau Wi-Fi préboot.",
+                if (!state.winPeMode && !usbMode && !pxeMode) Text("Wi-Fi dans Windows ≠ Wi-Fi dans l'UEFI. Ce PC n'est probablement pas compatible avec Wireless PocketInstall si son firmware n'a pas le réseau Wi-Fi préboot.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 if (usbMode) Text("USB dans Windows ≠ USB réseau dans l’UEFI. Si le firmware ne reconnaît pas le partage USB, ce PC n’est probablement pas compatible avec PocketInstall par câble USB.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
-                Text("POC EFI uniquement · aucune installation Windows pour l'instant.", Modifier.padding(top = 10.dp))
+                Text("Test EFI et chargement WinPE · aucune installation Windows automatique.", Modifier.padding(top = 10.dp))
                 Text("Usage personnel et modifications privées autorisés. Redistribution soumise à accord écrit.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { licenseOpen = true }) { Text("Lire la licence") }

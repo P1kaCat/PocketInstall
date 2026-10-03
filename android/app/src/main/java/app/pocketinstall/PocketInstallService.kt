@@ -21,6 +21,7 @@ import app.pocketinstall.server.BootResource
 import app.pocketinstall.server.Ipv4Subnet
 import app.pocketinstall.server.LocalHttpServer
 import app.pocketinstall.server.LocalTftpServer
+import app.pocketinstall.server.WinPeBundle
 import app.pocketinstall.server.RequestPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +52,7 @@ class PocketInstallService : Service() {
             stopSession("Serveur arrêté.")
             return START_NOT_STICKY
         }
-        if (intent?.action != ACTION_START || server != null || stopping.get()) return START_NOT_STICKY
+        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.importingWinPe) return START_NOT_STICKY
         try {
             val notifications = getSystemService(NotificationManager::class.java)
             notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Session PocketInstall", NotificationManager.IMPORTANCE_LOW))
@@ -61,7 +62,7 @@ class PocketInstallService : Service() {
             val notification = NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_upload)
                 .setContentTitle("PocketInstall · serveur local")
-                .setContentText("Session limitée à 30 minutes. Aucun accès disque.")
+                .setContentText("Session locale limitée à 30 minutes.")
                 .setContentIntent(open).setOngoing(true)
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Arrêter", stop).build()
             if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
@@ -69,14 +70,16 @@ class PocketInstallService : Service() {
             val candidate = intent.getStringExtra(EXTRA_CANDIDATE) ?: ""
             val usb = intent.getBooleanExtra(EXTRA_USB, false)
             val pxe = intent.getBooleanExtra(EXTRA_PXE, false)
+            val winPe = intent.getBooleanExtra(EXTRA_WINPE, false)
+            require(!winPe || (!usb && !pxe))
             require(!usb || !pxe) { "PXE USB is not supported by this prototype" }
-            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, usbMode = usb, pxeMode = pxe,
+            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, usbMode = usb, pxeMode = pxe, winPeMode = winPe,
                 message = "Ouverture de la session…")
             scope.launch {
-                try { startSession(candidate, usb, pxe) }
+                try { startSession(candidate, usb, pxe, winPe) }
                 catch (e: Exception) {
                     if (!stopping.get()) {
-                        stopSession("Impossible de démarrer : ${e.javaClass.simpleName}. Vérifie l'interface choisie et le port 8080.")
+                        stopSession("Impossible de démarrer : ${e.message ?: e.javaClass.simpleName}.")
                         ServerStore.mutable.update { it.copy(status = ServerStatus.ERROR) }
                     }
                 }
@@ -88,15 +91,29 @@ class PocketInstallService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean) = synchronized(lock) {
+    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean, winPe: Boolean) = synchronized(lock) {
         if (stopping.get() || server != null) return@synchronized
         val lan = LanNetwork.candidates(this, usb).firstOrNull { it.id == candidateId }
             ?: error("Interface privée absente ou modifiée")
         selected = lan
         val length = assets.openFd("boot/bootx64.efi").use { it.length }
         val subnet = Ipv4Subnet(lan.address, lan.prefix)
-        val resources = mapOf("bootx64.efi" to BootResource(length, "application/efi") { assets.open("boot/bootx64.efi") })
-        val http = LocalHttpServer(lan.address, subnet, resources,
+        val resources = mutableMapOf("bootx64.efi" to BootResource(length, "application/efi") { assets.open("boot/bootx64.efi") })
+        lateinit var http: LocalHttpServer
+        if (winPe) {
+            val directory = WinPeStorage.current(this) ?: error("Importe un bundle WinPE d'abord.")
+            WinPeStorage.verify(directory)
+            for (name in WinPeBundle.names) {
+                val file = java.io.File(directory, name)
+                resources["winpe/$name"] = BootResource(file.length(), "application/octet-stream") { file.inputStream() }
+            }
+            val address = checkNotNull(lan.address.hostAddress)
+            val sample = WinPeBundle.script("http://$address:8080/${"0".repeat(32)}")
+            resources["winpe/boot.ipxe"] = BootResource(sample.size.toLong(), "text/plain") {
+                WinPeBundle.script("http://$address:${http.port}/${http.session}").inputStream()
+            }
+        }
+        http = LocalHttpServer(lan.address, subnet, resources,
             monotonicMillis = { SystemClock.elapsedRealtime() },
             onEvent = { event ->
                 if (stopping.get()) return@LocalHttpServer
@@ -158,8 +175,9 @@ class PocketInstallService : Service() {
             }
         }
         ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
-            url = http.bootUrl, subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
-            message = if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
+            url = if (winPe) http.bootUrl.removeSuffix("bootx64.efi") + "winpe/boot.ipxe" else http.bootUrl,
+            loaderUrl = if (winPe) http.bootUrl.removeSuffix("bootx64.efi") + "winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
+            message = if (winPe) "WinPE prêt par HTTP. Suis les étapes Freebox et iPXE ci-dessous." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
                 else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
                 else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
     }
@@ -216,6 +234,7 @@ class PocketInstallService : Service() {
         const val EXTRA_CANDIDATE = "candidateId"
         const val EXTRA_USB = "usbMode"
         const val EXTRA_PXE = "pxeMode"
+        const val EXTRA_WINPE = "winPeMode"
         private const val CHANNEL = "pocketinstall-session"
     }
 }

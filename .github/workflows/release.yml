@@ -17,7 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  winpe:
+    uses: ./.github/workflows/build-winpe.yml
   publish:
+    needs: winpe
     if: github.repository == 'P1kaCat/PocketInstall' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -99,6 +102,12 @@ jobs:
         if: steps.existing.outputs.skip != 'true'
         working-directory: android
         run: ./gradlew --no-daemon --console=plain --stacktrace :server-core:test :app:assembleDebug :app:lintDebug
+      - name: Fetch prepared WinPE bundle
+        if: steps.existing.outputs.skip != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-ready
+          path: winpe-ready
       - name: Verify signature and prepare assets
         if: steps.existing.outputs.skip != 'true'
         env:
@@ -111,6 +120,17 @@ jobs:
             --apk android/app/build/outputs/apk/debug/app-debug.apk \
             --output release-out --version "$VERSION" --commit "$GITHUB_SHA" \
             --aapt "${ANDROID_HOME}/build-tools/36.0.0/aapt"
+          python3 scripts/verify_winpe_bundle.py winpe-ready/PocketInstall-WinPE-x64.zip
+          cp winpe-ready/* release-out/
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path("release-out")
+          manifest = json.loads((root / "release.json").read_text())
+          manifest["winpe"] = {"bundle": "PocketInstall-WinPE-x64.zip", "installsWindows": False, "physicalBootTested": False, "adkBuildValidated": True}
+          manifest["artifacts"] = [{"name": p.name, "bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.iterdir()) if p.name not in ("SHA256SUMS", "release.json")]
+          (root / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          (root / "SHA256SUMS").write_text("".join(hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n" for p in sorted(root.iterdir()) if p.name != "SHA256SUMS"))
+          PY
           (cd release-out && sha256sum -c SHA256SUMS)
       - name: Publish prerelease with APK
         if: steps.existing.outputs.skip != 'true'
@@ -122,5 +142,5 @@ jobs:
         run: |
           gh release create "$TAG" release-out/* \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "PocketInstall $VERSION — POC" \
+            --title "PocketInstall $VERSION — WinPE preview" \
             --prerelease --latest=false --notes-file "releases/$VERSION/NOTES.md"

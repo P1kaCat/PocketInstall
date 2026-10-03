@@ -1,0 +1,73 @@
+name: Build private WinPE bundle
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  loaders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build pinned iPXE x64 console loader
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential liblzma-dev mtools
+          mkdir -p loader-out
+          git clone https://github.com/ipxe/ipxe.git ipxe-source
+          git -C ipxe-source checkout --detach 6262f1081fe185564e8ec8365a1d23597ec6e6f5
+          printf '#!ipxe\nshell\n' > ipxe-source/src/pocketinstall-console.ipxe
+          make -C ipxe-source/src -j2 bin-x86_64-efi/snponly.efi EMBED=pocketinstall-console.ipxe
+          cp ipxe-source/src/bin-x86_64-efi/snponly.efi loader-out/snponly.efi
+          git -C ipxe-source clean -fdX
+          tar --exclude=.git --exclude='bin-*' --exclude=bin -czf loader-out/iPXE-source.tar.gz ipxe-source
+          curl --fail --location --retry 3 https://github.com/ipxe/wimboot/releases/download/v2.9.0/wimboot -o loader-out/wimboot
+          echo '5f067ccdc4d084d5bf77b6c853bd0f8402dfc2b4cd1b103d358993ae97fae8e3  loader-out/wimboot' | sha256sum -c -
+          curl --fail --location --retry 3 https://github.com/ipxe/wimboot/archive/e5875648bd52a3b915ae54933d9adf8ac763baca.tar.gz -o loader-out/wimboot-source.tar.gz
+          python3 scripts/verify_winpe_bundle.py --loader loader-out/snponly.efi
+          (cd loader-out && sha256sum snponly.efi wimboot > LOADERS-SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winpe-loaders
+          path: loader-out/*
+          if-no-files-found: error
+          retention-days: 7
+  winpe:
+    needs: loaders
+    # Microsoft media is built for the owner of this private deployment repository.
+    if: github.event.repository.private == true
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-loaders
+          path: loader-out
+      - name: Install official Microsoft ADK and WinPE add-on
+        shell: pwsh
+        run: ./scripts/Install-AdkForCI.ps1
+      - name: Build WinPE console and package import ZIP
+        shell: pwsh
+        run: |
+          ./scripts/Build-WinPE.ps1 -WorkDirectory C:\PocketInstall-WinPE -OutputDirectory C:\PocketInstall-Bundle
+          New-Item -ItemType Directory -Path winpe-out | Out-Null
+          $wimbootHash = (Get-FileHash loader-out/wimboot -Algorithm SHA256).Hash
+          $ipxeHash = (Get-FileHash loader-out/snponly.efi -Algorithm SHA256).Hash
+          ./scripts/Package-WinPE.ps1 -BundleDirectory C:\PocketInstall-Bundle -Wimboot loader-out/wimboot -WimbootSha256 $wimbootHash -Ipxe loader-out/snponly.efi -IpxeSha256 $ipxeHash -OutputZip "$PWD/winpe-out/PocketInstall-WinPE-x64.zip"
+          python scripts/verify_winpe_bundle.py winpe-out/PocketInstall-WinPE-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Bundle validation failed.' }
+          Copy-Item loader-out/snponly.efi, loader-out/*source.tar.gz, loader-out/LOADERS-SHA256SUMS -Destination winpe-out
+          Copy-Item docs/WINPE_FREEBOX.md -Destination winpe-out/WINPE-GUIDE.md
+          Copy-Item C:\PocketInstall-Bundle/manifest.json -Destination winpe-out/ADK-PROVENANCE.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winpe-ready
+          path: winpe-out/*
+          if-no-files-found: error
+          retention-days: 14

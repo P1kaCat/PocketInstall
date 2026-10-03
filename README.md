@@ -4,7 +4,7 @@ Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur 
 même LAN, via **UEFI HTTP Boot** ou **UEFI PXE IPv4 sous conditions**, sans clé USB ou application
 préinstallée sur le PC.
 
-Cette livraison est le **POC 0.1.3**. Elle fournit un environnement EFI minimal,
+La prochaine livraison est **0.2.0-winpe-preview**. Elle fournit un environnement EFI minimal,
 une application Android Kotlin/Compose, les tests réseau et la préparation de
 la future chaîne WinPE. Elle n'installe ni ne répare encore Windows.
 
@@ -151,6 +151,16 @@ python3 scripts/qemu_pxe_boot.py
 Ce test utilise le TFTP QEMU/libslirp et vérifie le trafic PCAP, l'exécution EFI
 et l'arrêt. Les tests UDP du TFTP Kotlin partagé par l'APK sont séparés ; aucun
 de ces tests ne certifie le démarrage depuis un téléphone réel.
+
+## Chargement WinPE en développement
+
+Le mode **Windows PE** importe un bundle ADK vérifié et le sert par HTTP depuis
+Android. Le parcours Freebox charge iPXE par TFTP puis wimboot et WinPE par HTTP.
+La console reste ouverte sans installation automatique. La procédure et les
+prérequis sont dans [docs/WINPE_FREEBOX.md](docs/WINPE_FREEBOX.md). Aucun fichier
+Microsoft ni chargeur tiers n’est embarqué dans l’APK. La release privée fournit
+un bundle WinPE construit sur GitHub, prêt à importer depuis le téléphone.
+La validation WinPE physique reste à effectuer.
 
 ## WinPE et suite du projet
 

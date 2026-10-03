@@ -1,0 +1,41 @@
+name: Validate WinPE development
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  winpe:
+    uses: ./.github/workflows/build-winpe.yml
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install SDK
+        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Test, compile and lint
+        working-directory: android
+        run: bash gradlew --no-daemon --console=plain :server-core:test :app:assembleDebug :app:lintDebug
+      - name: Parse packaging script
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/scripts/Package-WinPE.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors; exit 1 }
+      - name: Keep development APK and test reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: PocketInstall-WinPE-development
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/server-core/build/test-results/test/*.xml
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: error
+          retention-days: 14
