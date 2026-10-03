@@ -46,3 +46,16 @@ Un GET reçu ne signifie pas « PC compatible » et une absence de GET ne suffit
 Un manuel général Dell n'est pas une certification de tous les Dell. Pour chaque
 test, noter SKU, version BIOS, NIC, méthode réseau, URL/port, état Secure Boot,
 révocations et traces. Ne pas inscrire « testé » sans exécution constatée.
+
+## Câble USB direct (POC 0.1.2, expérimental)
+
+Le partage USB d'Android expose un réseau RNDIS/NCM selon le téléphone ; un
+pilote compatible doit exister **dans le firmware** du PC, qui doit aussi
+disposer de DHCP IPv4 et HTTP Boot sur cette interface. Aucun couple réel
+n'est validé. MTP, recharge, détection sous Windows ou USB Boot stockage ne
+suffisent pas. Voir [docs/USB_CABLE.md](docs/USB_CABLE.md).
+
+La détection dans PocketInstall est une heuristique de noms d'interfaces USB
+avec IPv4 privée, pas une détection du firmware. Un modèle OEM non reconnu peut
+ne pas apparaître. Un adaptateur USB-C/Ethernet reconnu par Android utilise le
+mode LAN ; c'est un parcours différent du partage USB direct.

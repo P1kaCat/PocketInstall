@@ -94,3 +94,19 @@ Profils Clean/Gaming/Dev/Custom : déclarations d'options, validation des dépen
 diff lisible, DISM/Appx/unattend documentés et tâches locales post-install facultatives.
 Un script de profil ne peut ni contourner `DestructivePlan` ni réparer le boot à
 distance sans confirmation sur le PC.
+
+## Transport USB optionnel
+
+À partir du POC 0.1.2, l'utilisateur peut choisir le réseau downstream du partage
+USB Android. Le serveur et l'EFI sont les mêmes ; seul le transport change.
+
+Le système Android active la fonction USB et DHCP après une action manuelle dans
+les paramètres. PocketInstall ne pilote ni le contrôleur USB ni un stockage bloc.
+Les candidats USB sont découverts par NetworkInterface, car ils peuvent ne pas
+être des Network ConnectivityManager. L'identifiant de sélection inclut
+interface/IP/préfixe ; le service le revalide avant de lier le serveur.
+Une surveillance toutes les secondes ferme la session si le candidat disparaît.
+
+La reconnaissance du périphérique réseau USB et HTTP Boot dans l'UEFI reste
+une condition indépendante, impossible à certifier depuis le téléphone.
+La suite WinPE et ses pilotes USB ne sont pas validés par ce changement.

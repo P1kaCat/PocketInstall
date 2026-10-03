@@ -56,3 +56,15 @@ Le workflow [Release APK](../.github/workflows/release.yml) construit les versio
 exécute les tests TCP et lint, vérifie la signature et les licences embarquées,
 puis crée une vraie release GitHub avec l'APK. Les détails de signature debug et
 les règles de publication sont dans [docs/RELEASING.md](../docs/RELEASING.md).
+
+## Câble USB expérimental
+
+Sélectionner le mode USB, ouvrir les paramètres réseau et activer le partage USB
+du téléphone, puis revenir et actualiser. Une interface privée compatible doit
+être visible ; les noms OEM non reconnus ne sont pas sélectionnés.
+Le serveur est lié à son IP et fermé si elle disparaît/change. Aucune API cachée,
+émulation mass-storage ou permission root n'est ajoutée.
+
+Le choix USB sert seulement le petit EFI : il ne certifie pas la reconnaissance
+RNDIS/NCM ni HTTP Boot dans l'UEFI et ne valide pas WinPE par USB.
+Voir [docs/USB_CABLE.md](../docs/USB_CABLE.md).

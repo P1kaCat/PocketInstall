@@ -188,3 +188,20 @@ GET reçu / message affiché / arrêt :
 Disques présents / aucune commande disque :
 WinPE (test séparé) / Ethernet / erreurs :
 ```
+
+## Test câble USB sans disque
+
+Le transport USB est **expérimental et non validé sur matériel réel**.
+Suivre [USB_CABLE.md](USB_CABLE.md) : vérifier d'abord la reconnaissance réseau
+dans l'UEFI, activer manuellement le partage USB Android, puis démarrer le seul
+EFI du POC et constater son message avant l'arrêt. Aucun formatage ni
+installation Windows.
+
+Tester aussi l'absence d'interface USB, le retour depuis les paramètres,
+le changement de mode lorsque le serveur est arrêté, le débranchement USB
+(arrêt détecté par la surveillance), le changement d'IP/préfixe et la
+restauration de l'interface après rotation/réouverture de l'application.
+
+Les tests JVM UsbLinkPolicy couvrent l'exclusion du VPN/mobile/Wi-Fi, IPv6,
+adresses publiques, interfaces inactives et sous-réseaux débordant l'espace privé.
+Ils ne valident ni un pilote Android ni un firmware physique.

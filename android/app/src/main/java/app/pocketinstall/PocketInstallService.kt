@@ -64,13 +64,15 @@ class PocketInstallService : Service() {
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Arrêter", stop).build()
             if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
             else startForeground(1, notification)
-            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, message = "Ouverture de la session…")
-            val handle = intent.getLongExtra(EXTRA_NETWORK, -1)
+            val candidate = intent.getStringExtra(EXTRA_CANDIDATE) ?: ""
+            val usb = intent.getBooleanExtra(EXTRA_USB, false)
+            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, usbMode = usb,
+                message = "Ouverture de la session…")
             scope.launch {
-                try { startSession(handle) }
+                try { startSession(candidate, usb) }
                 catch (e: Exception) {
                     if (!stopping.get()) {
-                        stopSession("Impossible de démarrer : ${e.javaClass.simpleName}. Vérifie le LAN et le port 8080.")
+                        stopSession("Impossible de démarrer : ${e.javaClass.simpleName}. Vérifie l'interface choisie et le port 8080.")
                         ServerStore.mutable.update { it.copy(status = ServerStatus.ERROR) }
                     }
                 }
@@ -82,10 +84,10 @@ class PocketInstallService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startSession(handle: Long) = synchronized(lock) {
+    private fun startSession(candidateId: String, usb: Boolean) = synchronized(lock) {
         if (stopping.get() || server != null) return@synchronized
-        val lan = LanNetwork.candidates(this).firstOrNull { it.network.networkHandle == handle }
-            ?: error("Aucun réseau LAN privé sélectionné")
+        val lan = LanNetwork.candidates(this, usb).firstOrNull { it.id == candidateId }
+            ?: error("Interface privée absente ou modifiée")
         selected = lan
         val length = assets.openFd("boot/bootx64.efi").use { it.length }
         val subnet = Ipv4Subnet(lan.address, lan.prefix)
@@ -109,7 +111,7 @@ class PocketInstallService : Service() {
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketInstall:session")
             .apply { acquire(30 * 60 * 1000L) }
         @Suppress("DEPRECATION")
-        if (getSystemService(ConnectivityManager::class.java).getNetworkCapabilities(lan.network)
+        if (lan.network != null && getSystemService(ConnectivityManager::class.java).getNetworkCapabilities(lan.network)
                 ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
             wifiLock = applicationContext.getSystemService(WifiManager::class.java)
                 .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketInstall:LAN").apply { acquire() }
@@ -126,10 +128,23 @@ class PocketInstallService : Service() {
         }
         ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
             url = http.bootUrl, subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
-            message = "Test EFI prêt. Vérifie le message de succès sur le PC.") }
+            message = if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
+                else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
     }
 
     private fun monitor(lan: LanCandidate) {
+        if (lan.network == null) {
+            scope.launch {
+                while (!stopping.get()) {
+                    delay(1000)
+                    if (LanNetwork.usbCandidates().none { it.id == lan.id }) {
+                        stopSession("Interface USB perdue ou IP modifiée. Réactive le partage USB puis recommence.")
+                        return@launch
+                    }
+                }
+            }
+            return
+        }
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onLost(network: Network) { if (network == lan.network) stopSession("Connexion LAN perdue. Redémarre une session.") }
             override fun onLinkPropertiesChanged(network: Network, properties: LinkProperties) {
@@ -164,7 +179,8 @@ class PocketInstallService : Service() {
     companion object {
         const val ACTION_START = "app.pocketinstall.START"
         const val ACTION_STOP = "app.pocketinstall.STOP"
-        const val EXTRA_NETWORK = "networkHandle"
+        const val EXTRA_CANDIDATE = "candidateId"
+        const val EXTRA_USB = "usbMode"
         private const val CHANNEL = "pocketinstall-session"
     }
 }

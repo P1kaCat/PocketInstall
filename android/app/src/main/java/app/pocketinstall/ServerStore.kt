@@ -15,6 +15,7 @@ data class ServerSnapshot(
     val clientsSeen: Int = 0,
     val events: List<HttpEvent> = emptyList(),
     val message: String = "Démarre une session pour le test EFI.",
+    val usbMode: Boolean = false,
 )
 object ServerStore {
     internal val mutable = MutableStateFlow(ServerSnapshot())

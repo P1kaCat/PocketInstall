@@ -43,3 +43,16 @@ Le `.efi` du POC est non signé. Tester d'abord en VM. Pour un essai physique o�
 faut changer Secure Boot, conserver la clé BitLocker, noter la configuration et
 la restaurer ensuite. Le logiciel ne force aucun changement de confiance. Éviter
 d'enrôler des clés de test sur le PC principal.
+
+## Partage USB optionnel
+
+Le mode USB ne lie pas le serveur à toutes les interfaces. Il accepte uniquement
+un candidat USB présumé, actif et IPv4, dont tout le sous-réseau est privé ; la
+sélection est revalidée au démarrage. Les interfaces VPN, Wi-Fi et mobiles ne
+sont pas des candidats USB. Les contrôles HTTP existants restent appliqués.
+
+La présence, l'IP et le préfixe sont vérifiés chaque seconde ; une perte ferme
+la session. Cette heuristique n'authentifie pas le PC ni ne vérifie l'UEFI.
+Android peut partager également Internet via son service système : l'utilisateur
+doit désactiver le partage USB dans les paramètres après usage. Arrêter le serveur
+PocketInstall n'arrête pas ce service Android indépendant.

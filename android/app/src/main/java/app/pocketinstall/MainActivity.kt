@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,7 +41,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -56,11 +56,12 @@ import app.pocketinstall.server.RequestPhase
 import kotlinx.coroutines.flow.update
 
 class MainActivity : ComponentActivity() {
-    private var pendingNetwork = -1L
+    private var pendingNetwork = ""
+    private var pendingUsb = false
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Denied notifications do not prevent a foreground service; Android may
         // show it only in the active-apps/task manager surface.
-        start(pendingNetwork)
+        start(pendingNetwork, pendingUsb)
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,11 +69,15 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xff67d9ee),
                 background = Color(0xff08141f), surface = Color(0xff112537))) {
                 val state by ServerStore.state.collectAsStateWithLifecycle()
-                var networks by remember { mutableStateOf(LanNetwork.candidates(this)) }
-                var chosen by remember { mutableLongStateOf(networks.firstOrNull()?.network?.networkHandle ?: -1L) }
-                DisposableEffect(lifecycle) {
+                var usbMode by remember { mutableStateOf(state.usbMode) }
+                var networks by remember { mutableStateOf(LanNetwork.candidates(this, usbMode)) }
+                var chosen by remember { mutableStateOf(networks.firstOrNull()?.id ?: "") }
+                DisposableEffect(lifecycle, usbMode) {
                     val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) networks = LanNetwork.candidates(this@MainActivity)
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            networks = LanNetwork.candidates(this@MainActivity, usbMode)
+                            if (networks.none { it.id == chosen }) chosen = networks.firstOrNull()?.id ?: ""
+                        }
                     }
                     lifecycle.addObserver(observer)
                     onDispose { lifecycle.removeObserver(observer) }
@@ -81,23 +86,27 @@ class MainActivity : ComponentActivity() {
                     if (state.status == ServerStatus.RUNNING) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
-                PocketScreen(state, networks, chosen, { chosen = it },
-                    { networks = LanNetwork.candidates(this); chosen = networks.firstOrNull()?.network?.networkHandle ?: -1L },
-                    { pendingNetwork = chosen; requestStart() },
+                PocketScreen(state, networks, chosen, usbMode,
+                    { usbMode = it; networks = LanNetwork.candidates(this, it); chosen = networks.firstOrNull()?.id ?: "" },
+                    { chosen = it },
+                    { networks = LanNetwork.candidates(this, usbMode); chosen = networks.firstOrNull()?.id ?: "" },
+                    { pendingNetwork = chosen; pendingUsb = usbMode; requestStart() },
                     { startService(Intent(this, PocketInstallService::class.java).setAction(PocketInstallService.ACTION_STOP)) },
-                    { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall Boot URL", state.url)) })
+                    { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall Boot URL", state.url)) },
+                    { runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
+                        .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } })
             }
         }
     }
     private fun requestStart() {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        else start(pendingNetwork)
+        else start(pendingNetwork, pendingUsb)
     }
-    private fun start(handle: Long) {
+    private fun start(candidate: String, usb: Boolean) {
         try {
             ContextCompat.startForegroundService(this, Intent(this, PocketInstallService::class.java)
-                .setAction(PocketInstallService.ACTION_START).putExtra(PocketInstallService.EXTRA_NETWORK, handle))
+                .setAction(PocketInstallService.ACTION_START).putExtra(PocketInstallService.EXTRA_CANDIDATE, candidate).putExtra(PocketInstallService.EXTRA_USB, usb))
         } catch (e: Exception) {
             ServerStore.mutable.update { it.copy(status = ServerStatus.ERROR, message = "Démarrage refusé : ${e.javaClass.simpleName}.") }
         }
@@ -105,8 +114,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, chosen: Long,
-    onChoose: (Long) -> Unit, onRefresh: () -> Unit, onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit) {
+private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, chosen: String, selectedUsb: Boolean, onMode: (Boolean) -> Unit,
+    onChoose: (String) -> Unit, onRefresh: () -> Unit, onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit,
+    onSettings: () -> Unit) {
     var licenseOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val licenseText = remember(context) {
@@ -125,6 +135,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
         )
     }
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
+    val usbMode = if (active) state.usbMode else selectedUsb
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
@@ -148,12 +159,29 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             }
             if (!active) {
                 item {
-                    Text("Réseau local", style = MaterialTheme.typography.titleMedium)
-                    if (networks.isEmpty()) Text("Aucune IPv4 LAN privée. Connecte le téléphone au Wi-Fi du PC, puis actualise.")
+                    Text("Connexion", style = MaterialTheme.typography.titleMedium)
+                    Row {
+                        RadioButton(selected = !usbMode, onClick = { onMode(false) })
+                        Text("LAN · Wi-Fi / Ethernet", Modifier.padding(top = 12.dp))
+                    }
+                    Row {
+                        RadioButton(selected = usbMode, onClick = { onMode(true) })
+                        Text("Câble USB · expérimental", Modifier.padding(top = 12.dp))
+                    }
+                    if (usbMode) {
+                        Text("Branche un câble USB de données puis active le partage de connexion USB dans les paramètres Android. Reviens ici et actualise.")
+                        Text("Le PC doit reconnaître ce réseau USB dans son UEFI et proposer HTTP Boot dessus. MTP et la recharge ne suffisent pas. Ce mode ne transforme pas le téléphone en clé USB bootable.",
+                            Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = onSettings) { Text("Ouvrir les paramètres réseau") }
+                    }
+                    Text(if (usbMode) "Interface USB privée" else "Réseau local", style = MaterialTheme.typography.titleMedium)
+                    if (networks.isEmpty()) Text(if (usbMode)
+                        "Aucune interface USB compatible visible. Active le partage USB puis actualise ; certains téléphones ne l'exposent pas à l'application."
+                        else "Aucune IPv4 LAN privée. Rejoins le même réseau local que le PC, puis actualise.")
                     networks.forEach { candidate ->
                         Row(Modifier.fillMaxWidth()) {
-                            RadioButton(selected = candidate.network.networkHandle == chosen,
-                                onClick = { onChoose(candidate.network.networkHandle) })
+                            RadioButton(selected = candidate.id == chosen,
+                                onClick = { onChoose(candidate.id) })
                             Text("${candidate.label}\n${candidate.address.hostAddress}/${candidate.prefix}", Modifier.padding(top = 6.dp))
                         }
                     }
@@ -162,7 +190,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             }
             item {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
-                else Button(onClick = onStart, enabled = networks.any { it.network.networkHandle == chosen },
+                else Button(onClick = onStart, enabled = networks.any { it.id == chosen },
                     modifier = Modifier.fillMaxWidth()) { Text("Démarrer le test EFI") }
             }
             item {
@@ -181,8 +209,10 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             }
             item {
                 Text("Premier test", style = MaterialTheme.typography.titleMedium)
-                Text("1. Même LAN pour le PC et le téléphone.\n2. UEFI HTTP Boot, URL manuelle.\n3. POC non signé : politique Secure Boot adaptée.\n4. Saisir l'URL exacte.\n5. Lire le succès sur le PC, puis arrêt automatique.")
-                Text("Wi-Fi dans Windows ≠ Wi-Fi dans l'UEFI. Ce PC n'est probablement pas compatible avec Wireless PocketInstall si son firmware n'a pas le réseau Wi-Fi préboot.",
+                Text(if (usbMode) "1. Câble USB de données.\n2. Partage USB activé dans Android.\n3. Réseau USB reconnu par l’UEFI et HTTP Boot disponible.\n4. Saisir l’URL exacte ; POC non signé.\n5. Lire le succès sur le PC, puis arrêt automatique." else "1. Même LAN pour le PC et le téléphone.\n2. UEFI HTTP Boot, URL manuelle.\n3. POC non signé : politique Secure Boot adaptée.\n4. Saisir l'URL exacte.\n5. Lire le succès sur le PC, puis arrêt automatique.")
+                if (!usbMode) Text("Wi-Fi dans Windows ≠ Wi-Fi dans l'UEFI. Ce PC n'est probablement pas compatible avec Wireless PocketInstall si son firmware n'a pas le réseau Wi-Fi préboot.",
+                    Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
+                if (usbMode) Text("USB dans Windows ≠ USB réseau dans l’UEFI. Si le firmware ne reconnaît pas le partage USB, ce PC n’est probablement pas compatible avec PocketInstall par câble USB.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 Text("POC EFI uniquement · aucune installation Windows pour l'instant.", Modifier.padding(top = 10.dp))
                 Text("Usage personnel et modifications privées autorisés. Redistribution soumise à accord écrit.",

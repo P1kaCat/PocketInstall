@@ -4,7 +4,7 @@ Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur 
 même LAN, via **UEFI HTTP Boot**, sans clé USB, câble téléphone–PC ou application
 préinstallée sur le PC.
 
-Cette livraison est le **POC 0.1.1**. Elle fournit un environnement EFI minimal,
+Cette livraison est le **POC 0.1.2**. Elle fournit un environnement EFI minimal,
 une application Android Kotlin/Compose, les tests réseau et la préparation de
 la future chaîne WinPE. Elle n'installe ni ne répare encore Windows.
 
@@ -48,9 +48,9 @@ distincts. Voir [research/FEASIBILITY.md](research/FEASIBILITY.md) et
 
 ## Essayer l'application
 
-La [release GitHub v0.1.1-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.1-poc)
+La [release GitHub v0.1.2-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.2-poc)
 fournit l'APK Android, le binaire EFI, la licence et leurs hashes.
-[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.1-poc/PocketInstall-0.1.1-poc-debug.apk).
+[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.2-poc/PocketInstall-0.1.2-poc-debug.apk).
 C'est un APK de développement pour Android 8+ ; aucun root ni câble USB requis.
 Si Android refuse la mise à jour du POC 0.1.0 pour signature différente,
 désinstaller cette ancienne version avant d'installer la nouvelle.
@@ -72,6 +72,18 @@ Le serveur est désactivé par défaut, lié à une IPv4 LAN privée, limité au
 sous-réseau, en lecture seule et fermé après 30 min. Le journal indique les fichiers
 demandés et les octets envoyés. HTTP clair et token temporaire ne protègent pas
 contre un attaquant actif du LAN : [SECURITY.md](SECURITY.md).
+
+## Option câble USB
+
+Le mode **Câble USB · expérimental** utilise le partage de connexion USB activé
+manuellement dans Android. Le PC doit reconnaître cette interface réseau dans
+son UEFI et proposer HTTP Boot dessus. Le téléphone ne devient pas une clé USB
+bootable ; aucun matériel physique n'est encore validé pour ce mode.
+La détection et l'URL sont fournies côté Android, sans certification du firmware.
+Voir [docs/USB_CABLE.md](docs/USB_CABLE.md).
+
+Le mode LAN continue de permettre le téléphone sur Wi-Fi ou Ethernet, avec le PC
+sur le même réseau.
 
 ## Construire
 
