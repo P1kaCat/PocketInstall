@@ -27,3 +27,13 @@ jobs:
           $tokens = $null; $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile("$PWD/scripts/Package-WinPE.ps1", [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count) { $errors; exit 1 }
+      - name: Keep development APK and test reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: PocketInstall-WinPE-development
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/server-core/build/test-results/test/*.xml
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: error
+          retention-days: 14
