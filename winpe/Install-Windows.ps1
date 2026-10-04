@@ -76,6 +76,95 @@ function Receive-Image([string]$path, [long]$length, [string]$sha256) {
     Move-Item -LiteralPath $partial -Destination $path -Force
 }
 
+# WinPE can expose S: while the Storage provider reports no DriveLetter for EFI.
+# Resolve the mount point to a volume GUID, then compare it to the expected GPT partition.
+function Get-VerifiedPartition([int]$diskNumber, [int]$partitionNumber, [string]$letter, [string]$gptType, [string]$fileSystem) {
+    $partition=Get-Partition -DiskNumber $diskNumber -PartitionNumber $partitionNumber
+    if($partition.DiskNumber -ne $diskNumber -or $partition.PartitionNumber -ne $partitionNumber) { throw 'Unexpected partition identity.' }
+    if(([string]$partition.GptType).Trim('{}') -ine $gptType.Trim('{}')) { throw "Unexpected GPT type for partition $partitionNumber." }
+    if(!(Test-Path -LiteralPath "${letter}:\")) { throw "Drive $letter is not accessible." }
+    $mount=(& mountvol.exe "${letter}:\" /L | Out-String).Trim()
+    if($LASTEXITCODE -ne 0 -or $mount -notmatch '^\\\\\?\\Volume\{[a-fA-F0-9-]{36}\}\\$') { throw "Cannot resolve drive $letter." }
+    if(!(@($partition.AccessPaths) | Where-Object { [string]$_ -ieq $mount })) { throw "Drive $letter does not map to disk $diskNumber partition $partitionNumber." }
+    $volume=Get-Volume -Path $mount
+    if([string]$volume.FileSystem -ine $fileSystem) { throw "Unexpected filesystem for drive $letter." }
+    return $partition
+}
+function Get-LayoutSpec([string]$storageLayout) {
+    $items=@(
+        @{number=1;letter='S';type='c12a7328-f81f-11d2-ba4b-00a0c93ec93b';fs='FAT32'},
+        @{number=3;letter='W';type='ebd0a0a2-b9e5-4433-87c0-68b6b72699c7';fs='NTFS'},
+        @{number=4;letter='R';type='de94bba4-06d1-4d40-a16a-bfd50179d6ac';fs='NTFS'}
+    )
+    if($storageLayout -eq 'SPLIT') { $items+=@{number=5;letter='U';type='ebd0a0a2-b9e5-4433-87c0-68b6b72699c7';fs='NTFS'} }
+    return $items
+}
+function Assert-Layout([int]$diskNumber, [string]$storageLayout) {
+    $parts=@(Get-Partition -DiskNumber $diskNumber)
+    $count=if($storageLayout -eq 'SPLIT') {5} else {4}
+    if($parts.Count -ne $count) { throw 'Unexpected partition count.' }
+    $reserved=Get-Partition -DiskNumber $diskNumber -PartitionNumber 2
+    if(([string]$reserved.GptType).Trim('{}') -ine 'e3c9e316-0b5c-4db8-817d-f92df00215ae' -or $reserved.Size -ne 16MB) { throw 'MSR partition missing or invalid.' }
+    foreach($item in @(Get-LayoutSpec $storageLayout)) { Get-VerifiedPartition $diskNumber $item.number $item.letter $item.type $item.fs | Out-Null }
+}
+function New-PartitionScript([int]$diskNumber, [string]$storageLayout, [int]$systemGiB) {
+    if($diskNumber -lt 0 -or $storageLayout -notin @('SINGLE','SPLIT') -or $systemGiB -notin @(96,128,160,256,512)) { throw 'Invalid disk layout.' }
+    $windows=if($storageLayout -eq 'SPLIT') { "create partition primary size=$($systemGiB*1024)" } else { "create partition primary`r`nshrink minimum=2048" }
+    $recovery=if($storageLayout -eq 'SPLIT') {'create partition primary size=2048'} else {'create partition primary'}
+    $data=if($storageLayout -eq 'SPLIT') { "create partition primary`r`nformat quick fs=ntfs label=MesFichiers`r`nassign letter=U" } else {''}
+    return @"
+select disk $diskNumber
+clean
+convert gpt
+create partition efi size=300
+format quick fs=fat32 label=System
+assign letter=S
+create partition msr size=16
+$windows
+format quick fs=ntfs label=Windows
+assign letter=W
+$recovery
+format quick fs=ntfs label=Recovery
+assign letter=R
+set id=de94bba4-06d1-4d40-a16a-bfd50179d6ac
+gpt attributes=0x8000000000000001
+$data
+exit
+"@
+}
+function Save-PartitionCheckpoint($identity, $plan, [string]$storageLayout) {
+    $record=@{schema=1;stage='partitioned';disk=$identity;sha256=[string]$plan.sha256;index=[int]$plan.index;storageLayout=$storageLayout;partitions=@(Get-Partition -DiskNumber $identity.number | Select-Object PartitionNumber,Guid,Offset,Size)}
+    $record | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath 'W:\PocketInstall\resume.json' -Encoding UTF8
+}
+function Get-ResumeCheckpoint([int]$diskNumber, $plan) {
+    $partition=Get-Partition -DiskNumber $diskNumber -PartitionNumber 3
+    $path=@($partition.AccessPaths | Where-Object { $_ -match '^\\\\\?\\Volume\{' }) | Select-Object -First 1
+    if(!$path) { throw 'Cannot locate the installation checkpoint.' }
+    $record=[IO.File]::ReadAllText("${path}PocketInstall\resume.json") | ConvertFrom-Json
+    if($record.schema -ne 1 -or $record.stage -ne 'partitioned' -or $record.sha256 -cne [string]$plan.sha256 -or $record.index -ne [int]$plan.index -or $record.disk.number -ne $diskNumber -or $record.storageLayout -notin @('SINGLE','SPLIT')) { throw 'Reprise indisponible: image differente, checkpoint absent, ou application Windows deja commencee.' }
+    $disk=Get-Disk -Number $diskNumber
+    if([string]$disk.UniqueId -cne $record.disk.uniqueId -or [string]$disk.SerialNumber -cne $record.disk.serial -or [long]$disk.Size -ne $record.disk.size) { throw 'Checkpoint disk identity mismatch.' }
+    $parts=@(Get-Partition -DiskNumber $diskNumber)
+    if($parts.Count -ne @($record.partitions).Count) { throw 'Checkpoint layout changed.' }
+    foreach($saved in $record.partitions) {
+        $current=Get-Partition -DiskNumber $diskNumber -PartitionNumber $saved.PartitionNumber
+        if([string]$current.Guid -ine [string]$saved.Guid -or $current.Offset -ne $saved.Offset -or $current.Size -ne $saved.Size) { throw 'Checkpoint partition changed.' }
+    }
+    return $record
+}
+function Connect-ResumeLetters([int]$diskNumber, [string]$storageLayout) {
+    $commands=@("select disk $diskNumber")
+    foreach($item in @(Get-LayoutSpec $storageLayout)) {
+        if(Test-Path -LiteralPath "$($item.letter):\") { Get-VerifiedPartition $diskNumber $item.number $item.letter $item.type $item.fs | Out-Null }
+        else { $commands+="select partition $($item.number)"; $commands+="assign letter=$($item.letter)" }
+    }
+    # This path only mounts existing partitions: it cannot clean, create, shrink or format.
+    $commands+='exit'; $commands | Set-Content -LiteralPath X:\PocketInstall-resume-letters.txt -Encoding ASCII
+    Invoke-Checked diskpart.exe @('/s','X:\PocketInstall-resume-letters.txt')
+    Update-HostStorageCache
+    Assert-Layout $diskNumber $storageLayout
+}
+
 try {
     $hardware=Get-Hardware
     Send-Report 'inventory' $hardware
@@ -85,7 +174,7 @@ try {
         Write-Host 'WinPE est pret. Importe une image Windows dans PocketInstall et choisis Windows > Edition avant le prochain demarrage PXE.'
         return
     }
-    if($plan.schema -ne 1 -or $plan.index -lt 1 -or $plan.index -gt 64 -or $plan.bytes -lt 208 -or $plan.bytes -gt 16GB -or $plan.sha256 -notmatch '^[a-f0-9]{64}$' -or $plan.version -notin @('WINDOWS_10','WINDOWS_11') -or $plan.editionId -notin @('Core','Professional') -or $plan.debloat -notin @('NONE','LIGHT','CUSTOM','AUTO')) { throw 'Invalid installation plan.' }
+    if($plan.schema -notin @(1,2) -or $plan.index -lt 1 -or $plan.index -gt 64 -or $plan.bytes -lt 208 -or $plan.bytes -gt 16GB -or $plan.sha256 -notmatch '^[a-f0-9]{64}$' -or $plan.version -notin @('WINDOWS_10','WINDOWS_11') -or $plan.editionId -notin @('Core','Professional') -or $plan.debloat -notin @('NONE','LIGHT','CUSTOM','AUTO')) { throw 'Invalid installation plan.' }
     & wpeutil.exe UpdateBootInfo | Out-Null
     if((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control).PEFirmwareType -ne 2) { throw 'UEFI boot required.' }
     if($plan.version -eq 'WINDOWS_11') {
@@ -95,61 +184,75 @@ try {
     $profile=[string]$plan.debloat
     if($profile -eq 'AUTO') { $profile=if($hardware.ramBytes -lt 8GB -or $hardware.cores -le 2) { 'LIGHT' } else { 'NONE' } }
     Write-Host "Selection: $($plan.version) $($plan.editionId), image index $($plan.index), debloat $profile"
-    Write-Host 'Installation neuve uniquement: toutes les partitions du disque choisi seront effacees. Sauvegarde tes fichiers avant de continuer.'
+    $storageLayout='SINGLE'; $systemGiB=128; $hideSystemDrive=$false
+    if($plan.schema -eq 2) {
+        if($plan.storageLayout -notin @('SINGLE','SPLIT') -or $plan.systemGiB -notin @(96,128,160,256,512) -or $plan.hideSystemDrive -isnot [bool]) { throw 'Invalid storage plan.' }
+        $storageLayout=[string]$plan.storageLayout; $systemGiB=[int]$plan.systemGiB
+        $hideSystemDrive=$storageLayout -eq 'SPLIT' -and $plan.hideSystemDrive
+    }
+    Write-Host 'Installation neuve: toutes les partitions du disque choisi seront effacees, apres confirmation.'
     $candidates=@(Get-Disk | Where-Object { !$_.IsReadOnly -and !$_.IsOffline -and $_.BusType -notin @('USB','SD','MMC') -and $_.Size -ge 64GB })
     if(!$candidates.Count) { throw 'Aucun disque interne accessible de 64 Go minimum. Aucun disque modifie.' }
     $candidates | Format-Table Number,FriendlyName,SerialNumber,@{Label='Go';Expression={[Math]::Round($_.Size/1GB,1)}} -AutoSize | Out-Host
     Send-Report 'awaiting-disk'
-    $numberText=Read-Host 'Numero du disque cible (vide pour annuler)'
+    $numberText=Read-Host 'Numero du disque (vide pour annuler; REPRENDRE N pour une installation interrompue avant application de Windows)'
+    $resume=$numberText -cmatch '^REPRENDRE (\d{1,4})$'
+    if($resume) { $numberText=$Matches[1] }
     if($numberText -notmatch '^\d{1,4}$') { Write-Host 'Installation annulee. Aucun disque modifie.'; return }
     $disk=$candidates | Where-Object Number -eq ([int]$numberText) | Select-Object -First 1
     if(!$disk -or [string]::IsNullOrWhiteSpace([string]$disk.UniqueId)) { throw 'Disque non eligible ou identite non disponible.' }
-    $needed=[Math]::Max(64GB,[long]$plan.bytes + 40GB + 18GB)
-    if($disk.Size -lt $needed) { throw 'Espace insuffisant pour Windows et le fichier de transfert temporaire.' }
-    # Never overwrite a drive-letter mapping belonging to a different disk.
-    foreach($letter in @('S','W','R')) { if(Get-Volume -DriveLetter $letter -ErrorAction SilentlyContinue) { throw "La lettre $letter est deja utilisee. Aucun disque modifie." } }
     $identity=@{ number=[int]$disk.Number; uniqueId=[string]$disk.UniqueId; serial=[string]$disk.SerialNumber; size=[long]$disk.Size; model=[string]$disk.FriendlyName }
-    Write-Host "EFFACEMENT: disque $($identity.number), $($identity.model), serie $($identity.serial), $([Math]::Round($identity.size/1GB,1)) Go."
-    Write-Host 'Le transfert Windows commence apres le partitionnement. En cas de panne reseau, ce disque restera efface; la console et les journaux resteront disponibles.'
-    $phrase="EFFACER $($identity.number)"
-    Send-Report 'awaiting-confirmation' $null "Disque $($identity.number), $($identity.model), serie $($identity.serial)"
-    if((Read-Host "Tape exactement '$phrase' pour confirmer") -cne $phrase) { Write-Host 'Annule. Aucun disque modifie.'; return }
-    $check=Get-Disk -Number $identity.number
-    if([string]$check.UniqueId -cne $identity.uniqueId -or [long]$check.Size -ne $identity.size -or [string]$check.SerialNumber -cne $identity.serial -or $check.IsReadOnly -or $check.IsOffline) { throw 'Identite du disque modifiee. Aucun disque modifie.' }
-    # Verify the source server is still serving the same file before the first write.
-    $probe=[Net.HttpWebRequest]::Create("$BaseUrl/install/image.wim"); $probe.Proxy=$null; $probe.Method='HEAD'; $probe.Timeout=5000
-    $answer=$probe.GetResponse(); try { if($answer.ContentLength -ne [long]$plan.bytes) { throw 'Image source changed.' } } finally { $answer.Dispose() }
-    Send-Report 'partitioning' $null "Disque $($identity.number): $($identity.model)"
-    $layout=@"
-select disk $($identity.number)
-clean
-convert gpt
-create partition efi size=300
-format quick fs=fat32 label=System
-assign letter=S
-create partition msr size=16
-create partition primary
-shrink minimum=2048
-format quick fs=ntfs label=Windows
-assign letter=W
-create partition primary
-format quick fs=ntfs label=Recovery
-assign letter=R
-set id=de94bba4-06d1-4d40-a16a-bfd50179d6ac
-gpt attributes=0x8000000000000001
-exit
-"@
-    $layout | Set-Content -LiteralPath X:\PocketInstall-layout.txt -Encoding ASCII
-    Invoke-Checked diskpart.exe @('/s','X:\PocketInstall-layout.txt')
-    foreach($letter in @('S','W','R')) { $partition=Get-Partition -DriveLetter $letter; if($partition.DiskNumber -ne $identity.number) { throw 'Unexpected partition mapping.' } }
-    $work='W:\PocketInstall'; New-Item -ItemType Directory -Path $work | Out-Null
-    Start-Transcript -Path "$work/install.log" -Force | Out-Null
+    if($resume) {
+        $checkpoint=Get-ResumeCheckpoint $identity.number $plan
+        if($checkpoint.storageLayout -cne $storageLayout) { throw 'Choisis le meme agencement que celui du checkpoint pour reprendre.' }
+        Write-Host "REPRISE SANS EFFACEMENT: disque $($identity.number), $($identity.model), serie $($identity.serial)."
+        if((Read-Host "Tape 'REPRENDRE $($identity.number)' pour poursuivre le transfert") -cne "REPRENDRE $($identity.number)") { return }
+        Connect-ResumeLetters $identity.number $storageLayout
+    } else {
+        $needed=[Math]::Max(64GB,[long]$plan.bytes + 40GB + 18GB)
+        if($storageLayout -eq 'SPLIT') {
+            if(($systemGiB*1GB) -lt $needed) { throw 'Partition Windows trop petite pour Windows et le transfert temporaire.' }
+            $needed=$systemGiB*1GB + 16GB + 300MB + 16MB + 2048MB + 2MB
+            Write-Host "C: Windows $systemGiB Gio | D: Mes fichiers: reste du disque | EFI, MSR et recuperation masques."
+        }
+        if($disk.Size -lt $needed) { throw 'Disque trop petit pour la taille Windows choisie et au moins 16 Gio de fichiers. Aucun disque modifie.' }
+        foreach($item in @(Get-LayoutSpec $storageLayout)) { if(Test-Path -LiteralPath "$($item.letter):\") { throw "La lettre $($item.letter) est deja utilisee. Aucun disque modifie." } }
+        Write-Host "EFFACEMENT: disque $($identity.number), $($identity.model), serie $($identity.serial), $([Math]::Round($identity.size/1GB,1)) Go."
+        Write-Host 'Le transfert commence apres le partitionnement. En cas de panne reseau, ce disque restera efface.'
+        $phrase="EFFACER $($identity.number)"
+        Send-Report 'awaiting-confirmation' $null "Disque $($identity.number), $($identity.model), serie $($identity.serial)"
+        if((Read-Host "Tape exactement '$phrase' pour confirmer") -cne $phrase) { Write-Host 'Annule. Aucun disque modifie.'; return }
+        $check=Get-Disk -Number $identity.number
+        if([string]$check.UniqueId -cne $identity.uniqueId -or [long]$check.Size -ne $identity.size -or [string]$check.SerialNumber -cne $identity.serial -or $check.IsReadOnly -or $check.IsOffline) { throw 'Identite du disque modifiee. Aucun disque modifie.' }
+        $probe=[Net.HttpWebRequest]::Create("$BaseUrl/install/image.wim"); $probe.Proxy=$null; $probe.Method='HEAD'; $probe.Timeout=5000
+        $answer=$probe.GetResponse(); try { if($answer.ContentLength -ne [long]$plan.bytes) { throw 'Image source changed.' } } finally { $answer.Dispose() }
+        Send-Report 'partitioning' $null "Disque $($identity.number): $($identity.model)"
+        New-PartitionScript $identity.number $storageLayout $systemGiB | Set-Content -LiteralPath X:\PocketInstall-layout.txt -Encoding ASCII
+        Invoke-Checked diskpart.exe @('/s','X:\PocketInstall-layout.txt')
+        $mapped=$false
+        for($attempt=0; $attempt -lt 5; $attempt++) {
+            try { Update-HostStorageCache; Assert-Layout $identity.number $storageLayout; $mapped=$true; break }
+            catch { if($attempt -eq 4) { throw }; Start-Sleep -Seconds 1 }
+        }
+        if(!$mapped) { throw 'Partition mapping unavailable.' }
+    }
+    $windowsPartition=Get-Partition -DiskNumber $identity.number -PartitionNumber 3
+    if($windowsPartition.Size -lt [Math]::Max(64GB,[long]$plan.bytes+58GB)) { throw 'Partition Windows trop petite.' }
+    if($storageLayout -eq 'SPLIT' -and [Math]::Abs($windowsPartition.Size-($systemGiB*1GB)) -gt 1MB) { throw 'La taille Windows ne correspond pas au checkpoint: reprends avec la taille initiale.' }
+    if(Test-Path -LiteralPath W:\Windows) { throw 'Windows existe deja: cette reprise ne reapplique pas une image sur un systeme existant.' }
+    $work='W:\PocketInstall'; New-Item -ItemType Directory -Path $work -Force | Out-Null
+    # Save the post-GPT identity (clean/convert can change disk identifiers).
+    $post=Get-Disk -Number $identity.number; $identity.uniqueId=[string]$post.UniqueId
+    Save-PartitionCheckpoint $identity $plan $storageLayout
+    Start-Transcript -Path "$work/install.log" -Append | Out-Null
     Send-Report 'downloading'
     $image="$work/install.wim"; Receive-Image $image ([long]$plan.bytes) ([string]$plan.sha256)
     Send-Report 'verifying'
     $info=Get-WindowsImage -ImagePath $image -Index ([int]$plan.index)
     if([int]$info.Architecture -ne 9 -or [string]$info.EditionId -cne [string]$plan.editionId -or ($plan.version -eq 'WINDOWS_11' -and $info.Version.Build -lt 22000) -or ($plan.version -eq 'WINDOWS_10' -and ($info.Version.Build -lt 10240 -or $info.Version.Build -ge 22000))) { throw 'Edition/version/architecture does not match the selected image.' }
-    New-Item -ItemType Directory -Path "$work/scratch" | Out-Null
+    New-Item -ItemType Directory -Path "$work/scratch" -Force | Out-Null
+    $checkpoint=Get-Content -LiteralPath "$work/resume.json" -Raw | ConvertFrom-Json
+    $checkpoint.stage='applying'; $checkpoint | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$work/resume.json" -Encoding UTF8
     Send-Report 'applying'
     Invoke-Checked dism.exe @('/Apply-Image',"/ImageFile:$image","/Index:$($plan.index)",'/ApplyDir:W:\','/CheckIntegrity',"/ScratchDir:$work/scratch")
     Send-Report 'configuring'
@@ -181,10 +284,45 @@ exit
     $bootScript=@'
 $ErrorActionPreference='Stop'
 if(Test-Path HKLM:\SYSTEM\CurrentControlSet\Control\MiniNT) { exit 1 }
+$storageMessage=''
+try {
+    if('__DATA_GUID__' -ne '') {
+        $system=Get-Partition -DriveLetter ($env:SystemDrive.TrimEnd(':'))
+        $data=@(Get-Partition | Where-Object { ([string]$_.Guid).Trim('{}') -ieq '__DATA_GUID__' })
+        if($data.Count -ne 1 -or $data[0].DiskNumber -ne $system.DiskNumber -or ([string]$data[0].GptType).Trim('{}') -ine 'ebd0a0a2-b9e5-4433-87c0-68b6b72699c7') { throw 'Partition de fichiers introuvable sur le disque Windows.' }
+        if($data[0].DriveLetter -ne 'D') {
+            if(Get-Volume -DriveLetter D -ErrorAction SilentlyContinue) { throw 'D: est deja utilise. C: reste visible.' }
+            Set-Partition -DiskNumber $data[0].DiskNumber -PartitionNumber $data[0].PartitionNumber -NewDriveLetter D
+        }
+        Set-Volume -DriveLetter D -NewFileSystemLabel 'Mes fichiers'
+        if('__HIDE_C__' -eq 'true') {
+            & reg.exe load HKU\PocketInstallDefault "$env:SystemDrive\Users\Default\NTUSER.DAT"
+            if($LASTEXITCODE -ne 0) { throw 'Profil par defaut non accessible; C: reste visible.' }
+            try {
+                # Cosmetic only: keep C: mounted and accessible to users and applications.
+                & reg.exe add 'HKU\PocketInstallDefault\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v NoDrives /t REG_DWORD /d 4 /f
+                if($LASTEXITCODE -ne 0) { throw 'Masquage de C: non applique.' }
+            } finally {
+                & reg.exe unload HKU\PocketInstallDefault
+                if($LASTEXITCODE -ne 0) { throw 'Profil par defaut non decharge.' }
+            }
+            @(
+                '@echo off',
+                'reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoDrives /f',
+                'echo Ferme puis rouvre ta session pour afficher C: dans Explorateur.',
+                'pause'
+            ) | Set-Content -LiteralPath 'D:\Afficher Windows.cmd' -Encoding ASCII
+        }
+        $storageMessage=' C: Windows; D: Mes fichiers.'
+    }
+} catch {
+    $storageMessage=" Agencement a verifier: $($_.Exception.Message)"
+}
+$storageMessage | Set-Content -LiteralPath "$env:SystemDrive\PocketInstall\storage-status.txt" -Encoding UTF8
 $success=$false
 for($attempt=0; $attempt -lt 12; $attempt++) {
     try {
-        $body=[Text.Encoding]::UTF8.GetBytes('{"stage":"windows-started","message":"Signal du Windows installe pendant specialize; OOBE reste a terminer."}')
+        $body=[Text.Encoding]::UTF8.GetBytes((@{stage='windows-started';message=('Signal du Windows installe pendant specialize; OOBE reste a terminer.'+$storageMessage)} | ConvertTo-Json -Compress))
         $request=[Net.HttpWebRequest]::Create('__BASE__/install/report')
         $request.Proxy=$null; $request.Method='POST'; $request.ContentType='application/json'; $request.ContentLength=$body.Length
         $request.Timeout=3000; $request.ReadWriteTimeout=3000
@@ -195,7 +333,9 @@ for($attempt=0; $attempt -lt 12; $attempt++) {
 if($success) { Remove-Item -LiteralPath $PSCommandPath -Force }
 exit 0
 '@
-    $bootScript.Replace('__BASE__',$BaseUrl) | Set-Content "$work/Windows-Started.ps1" -Encoding UTF8
+    $dataGuid=if($storageLayout -eq 'SPLIT') { ([string](Get-Partition -DiskNumber $identity.number -PartitionNumber 5).Guid).Trim('{}') } else {''}
+    if($storageLayout -eq 'SPLIT' -and $dataGuid -notmatch '^[a-fA-F0-9-]{36}$') { throw 'Invalid data partition identity.' }
+    $bootScript.Replace('__BASE__',$BaseUrl).Replace('__DATA_GUID__',$dataGuid).Replace('__HIDE_C__',([string]$hideSystemDrive).ToLowerInvariant()) | Set-Content "$work/Windows-Started.ps1" -Encoding UTF8
     @'
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
@@ -209,6 +349,7 @@ exit 0
     Remove-Item -LiteralPath $image -Force
     Stop-Transcript | Out-Null
     Send-Report 'prepared' $null 'Windows applique, boot UEFI et WinRE prepares. Premier demarrage Windows a confirmer sur le PC.'
+    if($storageLayout -eq 'SPLIT') { Write-Host 'Au demarrage Windows: C: pour Windows, D: Mes fichiers. Dossiers personnels sur C:; choisis D: pour tes fichiers et jeux.' }
     Write-Host 'Windows est installe sur le disque. Le premier demarrage et OOBE restent a verifier.'
     Write-Host 'Redemarre sur le disque interne (pas PXE). Termine la configuration Windows et active avec ta licence.'
     if((Read-Host 'Appuie sur Entree pour redemarrer, ou tape RESTER pour garder la console') -eq '') { & wpeutil.exe Reboot }

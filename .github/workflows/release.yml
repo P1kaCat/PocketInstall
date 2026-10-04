@@ -20,7 +20,7 @@ concurrency:
 jobs:
   tested_bundle:
     # Explicitly requested 0.3.0 preview publishes existing artifacts through its dedicated workflow.
-    if: ${{ !contains(github.event.head_commit.message, '[publish-install-preview]') && !contains(github.event.head_commit.message, '[publish-download]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[publish-install-preview]') && !contains(github.event.head_commit.message, '[publish-download]') && !contains(github.event.head_commit.message, '[publish-storage]') }}
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}

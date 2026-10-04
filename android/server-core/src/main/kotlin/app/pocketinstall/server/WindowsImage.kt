@@ -11,6 +11,7 @@ import org.w3c.dom.Element
 enum class WindowsVersion(val label: String) { WINDOWS_10("Windows 10"), WINDOWS_11("Windows 11") }
 enum class WindowsEdition(val label: String, val editionId: String) { HOME("Home", "Core"), PRO("Pro", "Professional") }
 enum class DebloatProfile(val label: String) { NONE("Aucun"), LIGHT("Léger"), CUSTOM("Personnalisé"), AUTO("Auto · selon le PC") }
+enum class StorageLayout(val label: String) { SINGLE("Tout sur C:"), SPLIT("Windows + Mes fichiers") }
 data class WindowsSelection(
     val version: WindowsVersion = WindowsVersion.WINDOWS_11,
     val edition: WindowsEdition = WindowsEdition.HOME,
@@ -19,7 +20,12 @@ data class WindowsSelection(
     val removeSolitaire: Boolean = false,
     val removeNews: Boolean = false,
     val removeWeather: Boolean = false,
-)
+    val storageLayout: StorageLayout = StorageLayout.SPLIT,
+    val systemGiB: Int = 128,
+    val hideSystemDrive: Boolean = true,
+) {
+    init { require(systemGiB in setOf(96,128,160,256,512)) }
+}
 data class WindowsImageEntry(val index: Int, val name: String, val editionId: String, val build: Int, val architecture: Int) {
     fun matches(selection: WindowsSelection): Boolean = architecture == 9 && editionId == selection.edition.editionId &&
         if (selection.version == WindowsVersion.WINDOWS_11) build >= 22000 else build in 10240..21999

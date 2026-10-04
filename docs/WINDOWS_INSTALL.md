@@ -55,3 +55,13 @@ Les commandes manuelles restent dans le diagnostic avancé. En cas d'échec, les
 ## Validation de cette preview
 
 Les tests Android/serveur et le boot automatique WinPE sans disque ont réussi. Un test distinct d'installation Windows 11 Pro sur QCOW2 jetable a été lancé, mais son résultat final n'est pas confirmé au moment de la publication de la preview 0.3.0. Le démarrage du Windows installé, l'installation physique, la fin d'OOBE et les quatre éditions restent à valider. Les tests d'installation ne redistribuent ni l'ISO ni le système Windows.
+
+## Disque Windows et espace pour les fichiers (3.1.1)
+
+Dans **Organisation du disque**, choisir **Windows + Mes fichiers** réserve une taille fixe à C: (Windows, applications et temporaires), puis attribue le reste à D: **Mes fichiers**. Les partitions EFI (300 Mio), MSR (16 Mio) et WinRE (2 Gio) restent masquées. WinRE est située entre C: et D: pour permettre son agrandissement lors des mises à jour Windows. Au moins 16 Gio doivent rester pour D:, sinon aucun effacement n’est lancé.
+
+**Masquer C: dans l’Explorateur** ne supprime pas C: et n’empêche pas de saisir un chemin comme `C:\Windows`. Le masquage est appliqué au profil par défaut au premier démarrage, une fois D: vérifiée sur le disque Windows. Si D: est déjà occupée par un autre volume, PocketInstall ne le modifie pas, conserve C: visible et écrit le diagnostic dans `C:\PocketInstall\storage-status.txt`. `D:\Afficher Windows.cmd` enlève le masquage pour le compte courant ; fermer puis rouvrir la session.
+
+Les dossiers personnels ne sont pas déplacés automatiquement : sélectionner D: comme destination des fichiers et jeux. Le mode **Tout sur C:** conserve l’agencement précédent.
+
+Après une interruption du transfert avec cette version, redémarrer le même environnement et choisir **REPRENDRE N** au lieu du seul numéro de disque. La reprise vérifie le checkpoint, l’identité du disque, toutes les partitions et l’image. Elle ne nettoie, ne crée et ne formate aucune partition. Elle s’arrête si l’application DISM a déjà commencé, si la sélection ne correspond plus, ou si le checkpoint est absent. Les installations lancées avec 3.1.0 ne disposent pas de ce checkpoint.
