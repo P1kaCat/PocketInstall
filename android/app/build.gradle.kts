@@ -11,10 +11,10 @@ android {
         applicationId = "app.pocketinstall"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "3.1.3"
+        versionCode = 12
+        versionName = "3.2.0"
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     androidResources { noCompress += "efi" }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

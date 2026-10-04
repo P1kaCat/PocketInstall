@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pocketinstall.server.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,7 +27,7 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var message by remember { mutableStateOf("Importe une image d'installation Windows officielle.") }
     var hash by remember { mutableStateOf("") }
     var trusted by remember { mutableStateOf(false) }
-    val download by WindowsDownloadStore.state.collectAsState()
+    val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
     var resolver by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf("French") }
     var manual by remember { mutableStateOf(false) }
@@ -67,92 +68,71 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
         resolver=false
         WindowsDownloadService.start(context,url,agent)
     }
-    Card { Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Installer Windows",style=MaterialTheme.typography.titleLarge)
-        Text("Windows")
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { WindowsVersion.entries.forEach { version ->
-            FilterChip(selected=selection.version == version,onClick={ update(selection.copy(version=version)) },enabled=!locked,label={Text(version.label)})
-        } }
-        if(selection.version == WindowsVersion.WINDOWS_10) Text("Windows 10 : support standard terminé. Vérifie ta couverture de mises à jour avant de le choisir.")
-        Text("Édition · selon ta licence")
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { WindowsEdition.entries.forEach { edition ->
-            FilterChip(selected=selection.edition == edition,onClick={update(selection.copy(edition=edition))},enabled=!locked,label={Text(edition.label)})
-        } }
-        Text("Organisation du disque",style=MaterialTheme.typography.titleMedium)
-        StorageLayout.entries.forEach { layout ->
-            FilterChip(selected=selection.storageLayout == layout,onClick={update(selection.copy(storageLayout=layout))},enabled=!locked,label={Text(layout.label)})
-        }
-        if(selection.storageLayout == StorageLayout.SPLIT) {
-            Text("C: pour Windows, les logiciels et les fichiers temporaires · D: pour tes fichiers et jeux.")
-            WindowsCheck("Dimensionner automatiquement Windows",selection.autoSystemSize,!locked) {update(selection.copy(autoSystemSize=it))}
-            val sizing=image?.let { runCatching { WindowsDiskSize.selectedGiB(selection,it) } }
-            if(selection.autoSystemSize) {
-                Text(sizing?.getOrNull()?.let { "C: $it Gio calculés pour cette édition · D: reste du disque" }
-                    ?: "La taille sera calculée après l’import de l’édition Windows choisie.")
-                Text("Taille de l’édition + 10 Gio pour les temporaires + 16 Gio pour les mises à jour. Le calcul couvre aussi le transfert et respecte un plancher de 64 Gio pour Windows 11 / 32 Gio pour Windows 10.")
-            } else {
-                Text("Espace réservé à Windows : ${selection.systemGiB} Gio")
-                listOf(listOf(48,64,80),listOf(96,128,160),listOf(256,512)).forEach { sizes ->
-                    Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                        sizes.forEach { size ->
-                            FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
-                        }
-                    }
-                }
+    val match = image?.entries?.filter { it.matches(selection) }.orEmpty()
+    val sizing = image?.let { runCatching { WindowsDiskSize.selectedGiB(selection,it) } }
+    val valid = match.size == 1 && sizing?.isSuccess == true
+    Column(verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        PocketSection("01  Windows", "Choisis la version et l’édition correspondant à ta licence. L’image Microsoft contient Home et Pro. Windows 10 a atteint la fin de son support standard : vérifie ta couverture de mises à jour.") {
+            PocketChoices { WindowsVersion.entries.forEach { version ->
+                FilterChip(selected=selection.version==version,onClick={update(selection.copy(version=version))},enabled=!locked,label={Text(version.label)})
+            } }
+            PocketChoices { WindowsEdition.entries.forEach { edition ->
+                FilterChip(selected=selection.edition==edition,onClick={update(selection.copy(edition=edition))},enabled=!locked,label={Text(edition.label)})
+            } }
+            if(selection.version==WindowsVersion.WINDOWS_10) Text("Support standard terminé",color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+            PocketChoices {
+                FilterChip(selected=language=="French",onClick={language="French"},enabled=!locked,label={Text("Français")})
+                FilterChip(selected=language=="English",onClick={language="English"},enabled=!locked,label={Text("English US")})
             }
-            sizing?.exceptionOrNull()?.message?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-            WindowsCheck("Masquer C: dans l’Explorateur",selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
-            Text("D: reçoit le reste du disque (au moins 16 Gio). C: reste accessible en saisissant son chemin. Les dossiers personnels restent sur C: ; enregistre tes fichiers sur D: pour utiliser cet espace.")
+            Button(onClick={resolver=true},enabled=!locked,modifier=Modifier.fillMaxWidth()) {Text(if(image==null) "Télécharger Windows" else "Télécharger une autre image")}
+            if(download.active) {
+                if(download.total>0) LinearProgressIndicator(progress={(download.bytes.toFloat()/download.total).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
+                else LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text(download.message)
+                OutlinedButton(onClick={WindowsDownloadService.cancel(context)}) {Text("Annuler le téléchargement")}
+            } else if(download.message.isNotBlank() && download.prepared == 0L) PocketNote(download.message)
+            if(!busy && (message.startsWith("Import refusé") || message.startsWith("Image indisponible"))) PocketNote(message,error=true)
+            if(busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(message) }
+            else if(image!=null) PocketNote(if(match.size==1) "${match.single().name} · image disponible" else "Cette édition manque dans l’image importée.",error=match.size!=1)
+            else Text(message,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick={manual=!manual},enabled=!locked) {Text(if(manual) "Fermer l’import manuel" else "J’ai déjà une image Windows")}
+            if(manual) {
+                HelpButton("Importer une image", "Importe une ISO Microsoft officielle, ou sources/install.wim ou install.esd extrait de cette ISO. Le ZIP WinPE contient l’environnement de démarrage, pas Windows. Prévois 15 à 20 Go libres sur le téléphone pour le téléchargement et la préparation. Un SHA-256 officiel peut être fourni pour vérifier le fichier.")
+                OutlinedButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version==WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO")))},enabled=!locked) {Text("Site Microsoft")}
+                OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text("SHA-256 officiel · facultatif")},singleLine=true,modifier=Modifier.fillMaxWidth())
+                PocketCheck("Fichier téléchargé depuis Microsoft",trusted,!locked) {trusted=it}
+                OutlinedButton(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text("Importer mon image")}
+            }
         }
-        Text("Les petites partitions de démarrage et de récupération restent masquées. Le choix et l’effacement du disque sont confirmés sur le PC.")
-        Text("Débloat")
-        DebloatProfile.entries.forEach { profile ->
-            FilterChip(selected=selection.debloat == profile,onClick={update(selection.copy(debloat=profile))},enabled=!locked,label={Text(profile.label)})
+        PocketSection("02  Stockage", "Le disque est choisi sur le PC. Une installation neuve efface ses partitions uniquement après confirmation explicite. Les petites partitions EFI, MSR et récupération restent masquées. En mode séparé, les dossiers personnels restent sur C: : enregistre tes fichiers et jeux sur D:. Masquer C: retire son icône, sans bloquer son accès.") {
+            PocketChoices { StorageLayout.entries.forEach { layout ->
+                FilterChip(selected=selection.storageLayout==layout,onClick={update(selection.copy(storageLayout=layout))},enabled=!locked,label={Text(layout.label)})
+            } }
+            if(selection.storageLayout==StorageLayout.SPLIT) {
+                PocketCheck("Taille Windows automatique",selection.autoSystemSize,!locked) {update(selection.copy(autoSystemSize=it))}
+                if(selection.autoSystemSize) {
+                    Text(sizing?.getOrNull()?.let {"Windows : $it Gio · Mes fichiers : le reste"} ?: "Taille calculée après l’import de Windows",style=MaterialTheme.typography.bodyMedium)
+                    HelpButton("Taille automatique", "Le calcul utilise la taille de l’édition sélectionnée, 10 Gio pour les temporaires et 16 Gio de marge pour les mises à jour. Il couvre aussi le transfert WIM/ESD et respecte un plancher conservateur de 64 Gio pour Windows 11 et 32 Gio pour Windows 10. D: reçoit le reste, au moins 16 Gio. Ce calcul n’est pas un quota ni une garantie d’espace libre après installation de logiciels.")
+                } else PocketChoices { listOf(48,64,80,96,128,160,256,512).forEach { size ->
+                    FilterChip(selected=selection.systemGiB==size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+                } }
+                sizing?.exceptionOrNull()?.message?.let {PocketNote(it,error=true)}
+                PocketCheck("Masquer C: dans l’Explorateur",selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
+            }
+            Text("Effacement à confirmer sur le PC",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if(selection.debloat == DebloatProfile.CUSTOM) {
-            WindowsCheck("Retirer Clipchamp",selection.removeClipchamp,!locked) {update(selection.copy(removeClipchamp=it))}
-            WindowsCheck("Retirer Solitaire",selection.removeSolitaire,!locked) {update(selection.copy(removeSolitaire=it))}
-            WindowsCheck("Retirer Actualités",selection.removeNews,!locked) {update(selection.copy(removeNews=it))}
-            WindowsCheck("Retirer Météo",selection.removeWeather,!locked) {update(selection.copy(removeWeather=it))}
+        PocketSection("03  Personnalisation", "Léger retire Clipchamp, Solitaire, Actualités et Météo si présents. Auto choisit Léger avec moins de 8 Go de RAM ou au plus 2 cœurs, sinon Aucun. Windows Update, Defender, le Store et les pilotes restent disponibles. Le choix de l’édition n’est pas automatique.") {
+            PocketChoices { DebloatProfile.entries.forEach { profile ->
+                FilterChip(selected=selection.debloat==profile,onClick={update(selection.copy(debloat=profile))},enabled=!locked,label={Text(profile.label)})
+            } }
+            if(selection.debloat==DebloatProfile.CUSTOM) {
+                PocketCheck("Retirer Clipchamp",selection.removeClipchamp,!locked) {update(selection.copy(removeClipchamp=it))}
+                PocketCheck("Retirer Solitaire",selection.removeSolitaire,!locked) {update(selection.copy(removeSolitaire=it))}
+                PocketCheck("Retirer Actualités",selection.removeNews,!locked) {update(selection.copy(removeNews=it))}
+                PocketCheck("Retirer Météo",selection.removeWeather,!locked) {update(selection.copy(removeWeather=it))}
+            }
+            PocketCheck("Installer au prochain démarrage PXE",enabled,!locked && valid) {update(install=it)}
+            if(enabled) PocketNote("Sélection prête. Ouvre l’onglet Installer.")
         }
-        if(selection.debloat == DebloatProfile.LIGHT) Text("Retire Clipchamp, Solitaire, Actualités et Météo s'ils sont présents. Réinstallation possible via Microsoft Store.")
-        if(selection.debloat == DebloatProfile.AUTO) Text("Le PC détecté détermine le profil : léger avec moins de 8 Go de RAM ou 2 cœurs maximum, sinon aucun. L'édition reste ton choix. La compatibilité Windows 11 du processeur reste à vérifier.")
-        if(selection.debloat != DebloatProfile.NONE) Text("Windows Update, Defender, Microsoft Store et les pilotes sont conservés. Les changements sont journalisés sur le PC.")
-        Text(message)
-        if(busy) LinearProgressIndicator()
-        Text("Langue de Windows")
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected=language == "French",onClick={language="French"},enabled=!locked,label={Text("Français")})
-            FilterChip(selected=language == "English",onClick={language="English"},enabled=!locked,label={Text("English US")})
-        }
-        Button(onClick={resolver=true},enabled=!locked) { Text("Télécharger et préparer Windows") }
-        Text("ISO x64 officielle Microsoft · Home et Pro dans la même image. Prévois environ 15 à 20 Go libres. L’installation reste à confirmer sur le PC.")
-        if(download.message.isNotBlank()) Text(download.message)
-        if(download.active) {
-            if(download.total > 0) LinearProgressIndicator(progress={ (download.bytes.toFloat()/download.total).coerceIn(0f,1f) },modifier=Modifier.fillMaxWidth())
-            else LinearProgressIndicator(Modifier.fillMaxWidth())
-            OutlinedButton(onClick={WindowsDownloadService.cancel(context)}) {Text("Annuler le téléchargement")}
-        }
-        TextButton(onClick={manual=!manual},enabled=!locked) {Text(if(manual) "Masquer l’import manuel" else "Import manuel / secours")}
-        if(manual) {
-        OutlinedButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version == WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO")))},enabled=!locked) {Text("Ouvrir le site Microsoft")}
-        Text("Le ZIP WinPE démarre le PC ; l'ISO Windows contient le système à installer. Import ISO9660/UDF standard ou sources/install.wim/install.esd extrait sur le téléphone.")
-        OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text("SHA-256 officiel du fichier (facultatif)")},singleLine=true,modifier=Modifier.fillMaxWidth())
-        WindowsCheck("Ce fichier provient d'un téléchargement officiel Microsoft",trusted,!locked) {trusted=it}
-        Button(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text("Importer l'image Windows")}
-        }
-        val match = image?.entries?.filter { it.matches(selection) }.orEmpty()
-        if(image != null) {
-            Text("Éditions disponibles : " + image!!.entries.filter { it.architecture == 9 && it.editionId in setOf("Core","Professional") }.joinToString { it.name })
-            Text(if(match.size == 1) "${match.single().name} · index ${match.single().index} détecté" else "La sélection n'est pas disponible dans cette image. Importe l'image correspondante ou change d'édition.")
-        }
-        WindowsCheck("Préparer l'installation au prochain démarrage PXE",enabled,!locked && match.size == 1 && runCatching { WindowsDiskSize.selectedGiB(selection,checkNotNull(image)) }.isSuccess) {update(install=it)}
-        Text("Installation neuve : le disque sera choisi et l'effacement confirmé sur le PC. Le transfert commence après cet effacement. Garde le serveur ouvert jusqu'à la fin du transfert.")
-        if(state.pcHardware.isNotEmpty()) Text("PC détecté : ${state.pcHardware}")
-        if(state.installMessage.isNotEmpty()) Text(state.installMessage)
-    } }
-}
-@Composable
-private fun WindowsCheck(label: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
-    Row { Checkbox(checked=checked,onCheckedChange=onChange,enabled=enabled); Text(label,modifier=Modifier.padding(top=12.dp)) }
+    }
 }

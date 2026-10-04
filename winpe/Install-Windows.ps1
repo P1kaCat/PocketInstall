@@ -5,7 +5,35 @@ Set-StrictMode -Version Latest
 $endpoint = [Uri]$BaseUrl
 if ($endpoint.Scheme -ne 'http' -or $endpoint.Host -notmatch '^\d+\.\d+\.\d+\.\d+$' -or $endpoint.AbsolutePath -notmatch '^/[a-f0-9]{32}$') { throw 'Invalid session URL.' }
 
+$script:ConsoleStage=''
+$script:ReportWarningShown=$false
+function Show-InstallStage([string]$stage, [string]$message='') {
+    if($script:ConsoleStage -eq $stage) { return }
+    $script:ConsoleStage=$stage
+    try { Clear-Host } catch {}
+    Write-Host ''
+    Write-Host '  POCKETINSTALL / INSTALLATION WINDOWS' -ForegroundColor Cyan
+    Write-Host '  -----------------------------------' -ForegroundColor DarkCyan
+    $titles=@('Detection du PC','Choix du disque','Preparation du disque','Transfert de Windows','Verification de l image','Installation de Windows','Personnalisation','Pret a redemarrer')
+    $positions=@{inventory=0;'awaiting-disk'=1;'awaiting-confirmation'=1;partitioning=2;downloading=3;verifying=4;applying=5;configuring=6;prepared=7;error=-1}
+    $position=if($positions.ContainsKey($stage)) {$positions[$stage]} else {-1}
+    for($i=0;$i -lt $titles.Count;$i++) {
+        $mark=if($i -eq $position){' > '}elseif($position -gt $i){'OK '}else{' . '}
+        $color=if($i -eq $position){'Cyan'}elseif($position -gt $i){'Green'}else{'Gray'}
+        Write-Host ('  {0} {1}' -f $mark,$titles[$i]) -ForegroundColor $color
+    }
+    Write-Host ''
+    if($message) { Write-Host ('  '+$message) }
+    Write-Host '  Details : X:\PocketInstall-native.log et W:\PocketInstall' -ForegroundColor DarkGray
+    Write-Host ''
+}
+function Save-NativeLog {
+    if(Test-Path -LiteralPath 'W:\PocketInstall') {
+        Copy-Item -LiteralPath 'X:\PocketInstall-native.log' -Destination 'W:\PocketInstall\native.log' -Force -ErrorAction SilentlyContinue
+    }
+}
 function Send-Report([string]$stage, $hardware = $null, [string]$message = '') {
+    Show-InstallStage $stage $message
     try {
         $body = [Text.Encoding]::UTF8.GetBytes((@{ stage=$stage; hardware=$hardware; message=$message.Substring(0,[Math]::Min(500,$message.Length)) } | ConvertTo-Json -Depth 6 -Compress))
         $request = [Net.HttpWebRequest]::Create("$BaseUrl/install/report")
@@ -13,9 +41,22 @@ function Send-Report([string]$stage, $hardware = $null, [string]$message = '') {
         $request.Timeout=5000; $request.ReadWriteTimeout=5000
         $stream=$request.GetRequestStream(); try { $stream.Write($body,0,$body.Length) } finally { $stream.Dispose() }
         $response=$request.GetResponse(); $response.Dispose()
-    } catch { Write-Host 'Statut non transmis au telephone; la console reste disponible.' }
+    } catch {
+        if(!$script:ReportWarningShown) { Write-Host '  Statut telephone indisponible. L installation continue sur ce PC.' -ForegroundColor Yellow; $script:ReportWarningShown=$true }
+    }
 }
 function Invoke-Checked([string]$file, [string[]]$arguments) {
+    if($file -ieq 'diskpart.exe') {
+        $previousPolicy=$ErrorActionPreference
+        try {
+            $ErrorActionPreference='Continue'
+            $output=& $file @arguments 2>&1
+            $exitCode=$LASTEXITCODE
+        } finally { $ErrorActionPreference=$previousPolicy }
+        $output | Out-File -LiteralPath 'X:\PocketInstall-native.log' -Append -Encoding UTF8
+        if($exitCode -ne 0) { $output | Select-Object -Last 12 | Out-Host; throw "$file failed ($exitCode). See X:\PocketInstall-native.log." }
+        return
+    }
     & $file @arguments
     if ($LASTEXITCODE -ne 0) { throw "$file failed ($LASTEXITCODE). Installation interrupted; see console and logs." }
 }
@@ -82,7 +123,7 @@ function Receive-Image([string]$path, [long]$length, [string]$sha256) {
             }
             Write-Progress -Activity 'Transfert de Windows depuis le telephone' -PercentComplete ([int](100*$output.Position/$length))
         }
-    } finally { $output.Dispose() }
+    } finally { $output.Dispose(); Write-Progress -Activity 'Transfert de Windows depuis le telephone' -Completed }
     if((Get-Sha256 $partial) -ne $sha256) { throw 'Image hash mismatch. Windows has not been applied.' }
     Move-Item -LiteralPath $partial -Destination $path -Force
 }
@@ -220,8 +261,8 @@ try {
     Write-Host 'Installation neuve: toutes les partitions du disque choisi seront effacees, apres confirmation.'
     $candidates=@(Get-Disk | Where-Object { !$_.IsReadOnly -and !$_.IsOffline -and $_.BusType -notin @('USB','SD','MMC') -and $_.Size -ge 64GB })
     if(!$candidates.Count) { throw 'Aucun disque interne accessible de 64 Go minimum. Aucun disque modifie.' }
-    $candidates | Format-Table Number,FriendlyName,SerialNumber,@{Label='Go';Expression={[Math]::Round($_.Size/1GB,1)}} -AutoSize | Out-Host
     Send-Report 'awaiting-disk'
+    $candidates | Format-Table Number,FriendlyName,SerialNumber,@{Label='Go';Expression={[Math]::Round($_.Size/1GB,1)}} -AutoSize | Out-Host
     $numberText=Read-Host 'Numero du disque (vide pour annuler; REPRENDRE N pour une installation interrompue avant application de Windows)'
     $resume=$numberText -cmatch '^REPRENDRE (\d{1,4})$'
     if($resume) { $numberText=$Matches[1] }
@@ -244,10 +285,10 @@ try {
         }
         if($disk.Size -lt $needed) { throw 'Disque trop petit pour la taille Windows choisie et au moins 16 Gio de fichiers. Aucun disque modifie.' }
         foreach($item in @(Get-LayoutSpec $storageLayout)) { if(Test-Path -LiteralPath "$($item.letter):\") { throw "La lettre $($item.letter) est deja utilisee. Aucun disque modifie." } }
+        Send-Report 'awaiting-confirmation' $null "Disque $($identity.number), $($identity.model), serie $($identity.serial)"
         Write-Host "EFFACEMENT: disque $($identity.number), $($identity.model), serie $($identity.serial), $([Math]::Round($identity.size/1GB,1)) Go."
         Write-Host 'Le transfert commence apres le partitionnement. En cas de panne reseau, ce disque restera efface.'
         $phrase="EFFACER $($identity.number)"
-        Send-Report 'awaiting-confirmation' $null "Disque $($identity.number), $($identity.model), serie $($identity.serial)"
         if((Read-Host "Tape exactement '$phrase' pour confirmer") -cne $phrase) { Write-Host 'Annule. Aucun disque modifie.'; return }
         $check=Get-Disk -Number $identity.number
         if([string]$check.UniqueId -cne $identity.uniqueId -or [long]$check.Size -ne $identity.size -or [string]$check.SerialNumber -cne $identity.serial -or $check.IsReadOnly -or $check.IsOffline) { throw 'Identite du disque modifiee. Aucun disque modifie.' }
@@ -378,6 +419,7 @@ exit 0
 </unattend>
 '@ | Set-Content "$panther/unattend.xml" -Encoding UTF8
     Remove-Item -LiteralPath $image -Force
+    Save-NativeLog
     Stop-Transcript | Out-Null
     Send-Report 'prepared' $null 'Windows applique, boot UEFI et WinRE prepares. Premier demarrage Windows a confirmer sur le PC.'
     if($storageLayout -eq 'SPLIT') { Write-Host 'Au demarrage Windows: C: pour Windows, D: Mes fichiers. Dossiers personnels sur C:; choisis D: pour tes fichiers et jeux.' }
@@ -385,8 +427,10 @@ exit 0
     Write-Host 'Redemarre sur le disque interne (pas PXE). Termine la configuration Windows et active avec ta licence.'
     if((Read-Host 'Appuie sur Entree pour redemarrer, ou tape RESTER pour garder la console') -eq '') { & wpeutil.exe Reboot }
 } catch {
-    Write-Host "Installation arretee: $($_.Exception.Message)" -ForegroundColor Red
-    Send-Report 'error' $null $_.Exception.Message
+    $failure=$_.Exception.Message
+    Send-Report 'error' $null $failure
+    Write-Host "Installation arretee: $failure" -ForegroundColor Red
+    Save-NativeLog
     Write-Host 'Ne relance pas un effacement sans verifier le disque. Journaux: X:\Windows\Logs\DISM et W:\PocketInstall si disponible.'
     try { Stop-Transcript | Out-Null } catch {}
 }

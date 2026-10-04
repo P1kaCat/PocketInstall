@@ -103,21 +103,31 @@ object WinPeBundle {
         require(Ipv4Subnet.isPrivate(ipv4) || ipv4.isLoopbackAddress)
         require(uri.port in 1..65535 && uri.path.matches(Regex("/[a-f0-9]{32}")))
         return """#!ipxe
-echo PocketInstall - chargement WinPE
+set esc:hex 1b
+echo ${'$'}{esc:string}[2J${'$'}{esc:string}[H
+echo
+echo   POCKETINSTALL / CHARGEMENT WINPE
+echo   --------------------------------
+echo   [1/4] Chargeur Windows
 set base $base
-kernel ${'$'}{base}/winpe/wimboot || goto failed
-initrd --name bootmgfw.efi ${'$'}{base}/winpe/bootmgfw.efi bootmgfw.efi || goto failed
-initrd --name BCD ${'$'}{base}/winpe/BCD BCD || goto failed
-initrd --name boot.sdi ${'$'}{base}/winpe/boot.sdi boot.sdi || goto failed
+kernel --quiet ${'$'}{base}/winpe/wimboot || goto failed
+initrd --quiet --name bootmgfw.efi ${'$'}{base}/winpe/bootmgfw.efi bootmgfw.efi || goto failed
+echo   [2/4] Configuration de demarrage
+initrd --quiet --name BCD ${'$'}{base}/winpe/BCD BCD || goto failed
+initrd --quiet --name boot.sdi ${'$'}{base}/winpe/boot.sdi boot.sdi || goto failed
+echo   [3/4] Environnement WinPE - garde le telephone connecte
 initrd --name boot.wim ${'$'}{base}/winpe/boot.wim boot.wim || goto failed
-initrd --name pocketinstall.cmd ${'$'}{base}/winpe/pocketinstall.cmd pocketinstall.cmd || goto failed
-initrd --name pocketinstall.ps1 ${'$'}{base}/winpe/pocketinstall.ps1 pocketinstall.ps1 || goto failed
-initrd --name install.ps1 ${'$'}{base}/winpe/install.ps1 install.ps1 || goto failed
-initrd --name install-plan.json ${'$'}{base}/winpe/install-plan.json install-plan.json || goto failed
-initrd --name winpeshl.ini ${'$'}{base}/winpe/winpeshl.ini winpeshl.ini || goto failed
+echo   [4/4] Preparation de l installation
+initrd --quiet --name pocketinstall.cmd ${'$'}{base}/winpe/pocketinstall.cmd pocketinstall.cmd || goto failed
+initrd --quiet --name pocketinstall.ps1 ${'$'}{base}/winpe/pocketinstall.ps1 pocketinstall.ps1 || goto failed
+initrd --quiet --name install.ps1 ${'$'}{base}/winpe/install.ps1 install.ps1 || goto failed
+initrd --quiet --name install-plan.json ${'$'}{base}/winpe/install-plan.json install-plan.json || goto failed
+initrd --quiet --name winpeshl.ini ${'$'}{base}/winpe/winpeshl.ini winpeshl.ini || goto failed
 boot || goto failed
 :failed
-echo PocketInstall - echec du chargement WinPE. Verifier le telephone et le LAN.
+echo
+echo   Chargement interrompu. Verifie le serveur et le reseau.
+echo   Diagnostic disponible dans PocketInstall > Aide.
 shell
 """.toByteArray(Charsets.US_ASCII)
     }

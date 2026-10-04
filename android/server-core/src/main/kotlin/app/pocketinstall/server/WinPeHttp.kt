@@ -21,16 +21,20 @@ object WinPeHttp {
         // wimboot injects these files into X:\Windows\System32. Only WinPE runs this callback.
         text("winpeshl.ini", "[LaunchApps]\r\n%SYSTEMROOT%\\System32\\cmd.exe, /k %SYSTEMROOT%\\System32\\pocketinstall.cmd\r\n".toByteArray(Charsets.US_ASCII))
         text("pocketinstall.cmd", """@echo off
-wpeinit
+title PocketInstall - Installation Windows
+color 0B
 cls
-echo PocketInstall boot successful (WinPE)
-echo Initialisation du reseau et connexion automatique au telephone...
-echo This command prompt remains available.
-ipconfig
+echo.
+echo   POCKETINSTALL
+ echo   Installation Windows depuis ton telephone
+ echo   -----------------------------------------
+echo.
+echo   [1/3] Initialisation de WinPE et du reseau...
+wpeinit > X:\PocketInstall-network.log 2>&1
 if exist X:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe (
   powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File X:\Windows\System32\pocketinstall.ps1
 ) else (
-  echo Phone notification unavailable in this bundle. Confirm boot on this screen.
+  echo PowerShell absent. WinPE a demarre, mais l installation ne peut pas continuer.
 )
 """.replace("\n", "\r\n").toByteArray(Charsets.US_ASCII))
         val endpoint = java.net.URI(base)
@@ -39,8 +43,9 @@ if exist X:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe (
         text("install.ps1", installer)
         text("pocketinstall.ps1", """
 §ErrorActionPreference = "Stop"
-§network = Start-Process -FilePath wpeutil.exe -ArgumentList InitializeNetwork -PassThru -NoNewWindow
+§network = Start-Process -FilePath wpeutil.exe -ArgumentList InitializeNetwork -PassThru -NoNewWindow -RedirectStandardOutput X:\PocketInstall-network-init.log -RedirectStandardError X:\PocketInstall-network-error.log
 if (-not §network.WaitForExit(45000)) { §network.Kill(); Write-Host "DHCP encore indisponible; nouvelles tentatives..." }
+Write-Host "  [2/3] Connexion au telephone..."
 §reported = §false
 for (§attempt = 0; §attempt -lt 12; §attempt++) {
   §client = New-Object System.Net.Sockets.TcpClient
@@ -61,14 +66,16 @@ for (§attempt = 0; §attempt -lt 12; §attempt++) {
     §failure = §_.Exception.Message
     if (§failure -eq "SESSION_EXPIRED") { break }
   } finally { §client.Close() }
+  Write-Progress -Activity "Connexion au telephone" -Status "Tentative §(§attempt+1) sur 12" -PercentComplete ([int](100*(§attempt+1)/12))
   Start-Sleep -Seconds 3
 }
+Write-Progress -Activity "Connexion au telephone" -Completed
 if (-not §reported) {
   Write-Host "WinPE demarre, mais le telephone n'est pas joignable: §failure"
   Write-Host "Garde la meme session serveur ouverte puis redemarre le PC en PXE. Aucun disque modifie."
   return
 }
-Write-Host "WinPE startup reported to PocketInstall."
+Write-Host "  [3/3] PC connecte. Preparation de l installation..."
 & X:\Windows\System32\install.ps1 -BaseUrl "$base"
 """.replace('§', '$').replace("\n", "\r\n").toByteArray(Charsets.US_ASCII))
         text("started", "WinPE startup signal received.\n".toByteArray(Charsets.US_ASCII))
@@ -77,12 +84,21 @@ Write-Host "WinPE startup reported to PocketInstall."
     fun freeboxConfig(address: Inet4Address): ByteArray {
         require(Ipv4Subnet.isPrivate(address) || address.isLoopbackAddress)
         return """#!ipxe
+# iPXE console sequences: https://ipxe.org/cmd/set
+set esc:hex 1b
+set screen ${'$'}{esc:string}[2J${'$'}{esc:string}[H
 :retry
-chain http://${address.hostAddress}:8080/boot.ipxe || goto waiting
+echo ${'$'}{screen}
+echo
+ echo   POCKETINSTALL / DEMARRAGE RESEAU
+ echo   --------------------------------
+ echo   En attente du telephone...
+ echo   Ouvre PocketInstall et demarre le serveur.
+echo
+chain --quiet --timeout 5000 http://${address.hostAddress}:8080/boot.ipxe || goto waiting
 exit
 :waiting
-echo PocketInstall - demarrer le serveur sur le telephone.
-sleep 3
+prompt --key 0x02 --timeout 3000 Ctrl-B : diagnostic && shell ||
 goto retry
 """.toByteArray(Charsets.US_ASCII)
     }
