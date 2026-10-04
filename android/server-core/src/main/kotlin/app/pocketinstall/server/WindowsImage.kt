@@ -23,10 +23,11 @@ data class WindowsSelection(
     val storageLayout: StorageLayout = StorageLayout.SPLIT,
     val systemGiB: Int = 128,
     val hideSystemDrive: Boolean = true,
+    val autoSystemSize: Boolean = true,
 ) {
-    init { require(systemGiB in setOf(96,128,160,256,512)) }
+    init { require(systemGiB in setOf(48,64,80,96,128,160,256,512)) }
 }
-data class WindowsImageEntry(val index: Int, val name: String, val editionId: String, val build: Int, val architecture: Int) {
+data class WindowsImageEntry(val index: Int, val name: String, val editionId: String, val build: Int, val architecture: Int, val expandedBytes: Long = 0) {
     fun matches(selection: WindowsSelection): Boolean = architecture == 9 && editionId == selection.edition.editionId &&
         if (selection.version == WindowsVersion.WINDOWS_11) build >= 22000 else build in 10240..21999
 }
@@ -72,8 +73,11 @@ object WindowsImage {
             val image = nodes.item(n) as Element
             val windows = image.child("WINDOWS") ?: error("Image sans métadonnées Windows.")
             val version = windows.child("VERSION") ?: error("Version Windows absente.")
+            val expandedText=image.value("TOTALBYTES").trim()
+            val expanded=if(expandedText.isEmpty()) 0L else expandedText.toLongOrNull() ?: error("Taille de l'édition Windows invalide.")
+            require(expanded in 0..WindowsDiskSize.MAX_EXPANDED_BYTES) { "Taille décompressée Windows hors limites." }
             WindowsImageEntry(image.getAttribute("INDEX").toInt(), image.value("NAME").take(120),
-                windows.value("EDITIONID"), version.value("BUILD").toInt(), windows.value("ARCH").toInt())
+                windows.value("EDITIONID"), version.value("BUILD").toInt(), windows.value("ARCH").toInt(),expanded)
         }
         require(entries.map { it.index }.toSet() == (1..count).toSet()) { "Index Windows dupliqués ou incohérents." }
         require(entries.any { it.architecture == 9 && it.editionId in setOf("Core", "Professional") && it.build >= 10240 }) { "Aucune édition Home/Pro x64 installable dans cette image." }

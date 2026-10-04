@@ -65,3 +65,13 @@ Dans **Organisation du disque**, choisir **Windows + Mes fichiers** réserve une
 Les dossiers personnels ne sont pas déplacés automatiquement : sélectionner D: comme destination des fichiers et jeux. Le mode **Tout sur C:** conserve l’agencement précédent.
 
 Après une interruption du transfert avec cette version, redémarrer le même environnement et choisir **REPRENDRE N** au lieu du seul numéro de disque. La reprise vérifie le checkpoint, l’identité du disque, toutes les partitions et l’image. Elle ne nettoie, ne crée et ne formate aucune partition. Elle s’arrête si l’application DISM a déjà commencé, si la sélection ne correspond plus, ou si le checkpoint est absent. Les installations lancées avec 3.1.0 ne disposent pas de ce checkpoint.
+
+## Taille automatique de Windows (3.1.2)
+
+Le mode séparé utilise **Dimensionner automatiquement Windows** par défaut. C: n’est plus fixé à 128 Gio. L’appli estime sa capacité à partir du champ `TOTALBYTES` de l’édition choisie dans le WIM/ESD, puis prend le maximum de :
+
+- Taille de l’édition + 10 Gio pour les temporaires + 16 Gio pour les mises à jour.
+- Taille de l’édition + taille du fichier de transfert + 2 Gio de travail.
+- 64 Gio pour Windows 11 ou 32 Gio pour Windows 10.
+
+Le résultat est arrondi au multiple de 4 Gio supérieur. Le reste va à D: (16 Gio minimum). La valeur apparaît dans l’appli ; WinPE refait le calcul avant effacement et vérifie aussi la taille DISM avant application. Une édition sans taille connue demande un choix manuel. Le calcul n’est pas un quota : les logiciels, pagefile, veille prolongée et mises à jour peuvent consommer davantage à l’usage. Le choix manuel reste possible et doit couvrir le minimum estimé.

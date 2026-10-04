@@ -107,8 +107,18 @@ function Assert-Layout([int]$diskNumber, [string]$storageLayout) {
     if(([string]$reserved.GptType).Trim('{}') -ine 'e3c9e316-0b5c-4db8-817d-f92df00215ae' -or $reserved.Size -ne 16MB) { throw 'MSR partition missing or invalid.' }
     foreach($item in @(Get-LayoutSpec $storageLayout)) { Get-VerifiedPartition $diskNumber $item.number $item.letter $item.type $item.fs | Out-Null }
 }
+function Get-MinimumSystemGiB([string]$version, [long]$expandedBytes, [long]$transferBytes) {
+    if($version -notin @('WINDOWS_10','WINDOWS_11') -or $expandedBytes -lt 1 -or $expandedBytes -gt 512GB -or $transferBytes -lt 208 -or $transferBytes -gt 16GB) { throw 'Invalid Windows size metadata.' }
+    $floor=if($version -eq 'WINDOWS_11') {64GB} else {32GB}
+    $steady=$expandedBytes+10GB+16GB
+    $peak=$expandedBytes+$transferBytes+2GB
+    $needed=[Math]::Max($floor,[Math]::Max($steady,$peak))
+    $rounded=[int]([Math]::Ceiling($needed/4GB)*4)
+    if($rounded -gt 512) { throw 'Windows edition exceeds supported capacity.' }
+    return $rounded
+}
 function New-PartitionScript([int]$diskNumber, [string]$storageLayout, [int]$systemGiB) {
-    if($diskNumber -lt 0 -or $storageLayout -notin @('SINGLE','SPLIT') -or $systemGiB -notin @(96,128,160,256,512)) { throw 'Invalid disk layout.' }
+    if($diskNumber -lt 0 -or $storageLayout -notin @('SINGLE','SPLIT') -or ($systemGiB -lt 32 -or $systemGiB -gt 512 -or $systemGiB % 4 -ne 0)) { throw 'Invalid disk layout.' }
     $windows=if($storageLayout -eq 'SPLIT') { "create partition primary size=$($systemGiB*1024)" } else { "create partition primary`r`nshrink minimum=2048" }
     $recovery=if($storageLayout -eq 'SPLIT') {'create partition primary size=2048'} else {'create partition primary'}
     $data=if($storageLayout -eq 'SPLIT') { "create partition primary`r`nformat quick fs=ntfs label=MesFichiers`r`nassign letter=U" } else {''}
@@ -174,7 +184,7 @@ try {
         Write-Host 'WinPE est pret. Importe une image Windows dans PocketInstall et choisis Windows > Edition avant le prochain demarrage PXE.'
         return
     }
-    if($plan.schema -notin @(1,2) -or $plan.index -lt 1 -or $plan.index -gt 64 -or $plan.bytes -lt 208 -or $plan.bytes -gt 16GB -or $plan.sha256 -notmatch '^[a-f0-9]{64}$' -or $plan.version -notin @('WINDOWS_10','WINDOWS_11') -or $plan.editionId -notin @('Core','Professional') -or $plan.debloat -notin @('NONE','LIGHT','CUSTOM','AUTO')) { throw 'Invalid installation plan.' }
+    if($plan.schema -notin @(1,2,3) -or $plan.index -lt 1 -or $plan.index -gt 64 -or $plan.bytes -lt 208 -or $plan.bytes -gt 16GB -or $plan.sha256 -notmatch '^[a-f0-9]{64}$' -or $plan.version -notin @('WINDOWS_10','WINDOWS_11') -or $plan.editionId -notin @('Core','Professional') -or $plan.debloat -notin @('NONE','LIGHT','CUSTOM','AUTO')) { throw 'Invalid installation plan.' }
     & wpeutil.exe UpdateBootInfo | Out-Null
     if((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control).PEFirmwareType -ne 2) { throw 'UEFI boot required.' }
     if($plan.version -eq 'WINDOWS_11') {
@@ -185,10 +195,16 @@ try {
     if($profile -eq 'AUTO') { $profile=if($hardware.ramBytes -lt 8GB -or $hardware.cores -le 2) { 'LIGHT' } else { 'NONE' } }
     Write-Host "Selection: $($plan.version) $($plan.editionId), image index $($plan.index), debloat $profile"
     $storageLayout='SINGLE'; $systemGiB=128; $hideSystemDrive=$false
-    if($plan.schema -eq 2) {
-        if($plan.storageLayout -notin @('SINGLE','SPLIT') -or $plan.systemGiB -notin @(96,128,160,256,512) -or $plan.hideSystemDrive -isnot [bool]) { throw 'Invalid storage plan.' }
+    if($plan.schema -ge 2) {
+        if($plan.storageLayout -notin @('SINGLE','SPLIT') -or ($plan.systemGiB -lt 32 -or $plan.systemGiB -gt 512 -or $plan.systemGiB % 4 -ne 0) -or $plan.hideSystemDrive -isnot [bool]) { throw 'Invalid storage plan.' }
         $storageLayout=[string]$plan.storageLayout; $systemGiB=[int]$plan.systemGiB
         $hideSystemDrive=$storageLayout -eq 'SPLIT' -and $plan.hideSystemDrive
+    }
+    $minimumSystemGiB=[int][Math]::Ceiling([Math]::Max(64GB,[long]$plan.bytes+58GB)/1GB)
+    if($plan.schema -eq 3) {
+        if($plan.autoSystemSize -isnot [bool] -or $plan.expandedBytes -lt 0 -or $plan.expandedBytes -gt 512GB) { throw 'Invalid automatic sizing plan.' }
+        if($plan.expandedBytes -gt 0) { $minimumSystemGiB=Get-MinimumSystemGiB ([string]$plan.version) ([long]$plan.expandedBytes) ([long]$plan.bytes) }
+        if($plan.autoSystemSize -and ($plan.expandedBytes -le 0 -or $systemGiB -ne $minimumSystemGiB)) { throw 'Automatic Windows size inconsistent. No disk modified.' }
     }
     Write-Host 'Installation neuve: toutes les partitions du disque choisi seront effacees, apres confirmation.'
     $candidates=@(Get-Disk | Where-Object { !$_.IsReadOnly -and !$_.IsOffline -and $_.BusType -notin @('USB','SD','MMC') -and $_.Size -ge 64GB })
@@ -209,9 +225,9 @@ try {
         if((Read-Host "Tape 'REPRENDRE $($identity.number)' pour poursuivre le transfert") -cne "REPRENDRE $($identity.number)") { return }
         Connect-ResumeLetters $identity.number $storageLayout
     } else {
-        $needed=[Math]::Max(64GB,[long]$plan.bytes + 40GB + 18GB)
+        $needed=$minimumSystemGiB*1GB+300MB+16MB+2048MB+2MB
         if($storageLayout -eq 'SPLIT') {
-            if(($systemGiB*1GB) -lt $needed) { throw 'Partition Windows trop petite pour Windows et le transfert temporaire.' }
+            if($systemGiB -lt $minimumSystemGiB) { throw 'Partition Windows trop petite pour Windows et le transfert temporaire.' }
             $needed=$systemGiB*1GB + 16GB + 300MB + 16MB + 2048MB + 2MB
             Write-Host "C: Windows $systemGiB Gio | D: Mes fichiers: reste du disque | EFI, MSR et recuperation masques."
         }
@@ -237,7 +253,7 @@ try {
         if(!$mapped) { throw 'Partition mapping unavailable.' }
     }
     $windowsPartition=Get-Partition -DiskNumber $identity.number -PartitionNumber 3
-    if($windowsPartition.Size -lt [Math]::Max(64GB,[long]$plan.bytes+58GB)) { throw 'Partition Windows trop petite.' }
+    if($windowsPartition.Size+1MB -lt $minimumSystemGiB*1GB) { throw 'Partition Windows trop petite.' }
     if($storageLayout -eq 'SPLIT' -and [Math]::Abs($windowsPartition.Size-($systemGiB*1GB)) -gt 1MB) { throw 'La taille Windows ne correspond pas au checkpoint: reprends avec la taille initiale.' }
     if(Test-Path -LiteralPath W:\Windows) { throw 'Windows existe deja: cette reprise ne reapplique pas une image sur un systeme existant.' }
     $work='W:\PocketInstall'; New-Item -ItemType Directory -Path $work -Force | Out-Null
@@ -250,6 +266,10 @@ try {
     Send-Report 'verifying'
     $info=Get-WindowsImage -ImagePath $image -Index ([int]$plan.index)
     if([int]$info.Architecture -ne 9 -or [string]$info.EditionId -cne [string]$plan.editionId -or ($plan.version -eq 'WINDOWS_11' -and $info.Version.Build -lt 22000) -or ($plan.version -eq 'WINDOWS_10' -and ($info.Version.Build -lt 10240 -or $info.Version.Build -ge 22000))) { throw 'Edition/version/architecture does not match the selected image.' }
+    if($plan.schema -eq 3) {
+        $actualMinimum=Get-MinimumSystemGiB ([string]$plan.version) ([long]$info.ImageSize) ([long]$plan.bytes)
+        if($windowsPartition.Size+1MB -lt $actualMinimum*1GB) { throw 'DISM signale une edition plus grande que les metadonnees: aucun fichier Windows applique. Choisis une taille manuelle suffisante.' }
+    }
     New-Item -ItemType Directory -Path "$work/scratch" -Force | Out-Null
     $checkpoint=Get-Content -LiteralPath "$work/resume.json" -Raw | ConvertFrom-Json
     $checkpoint.stage='applying'; $checkpoint | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$work/resume.json" -Encoding UTF8
