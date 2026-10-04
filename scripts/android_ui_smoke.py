@@ -19,7 +19,7 @@ def nodes():
 
 def tap(label, description=False):
     for attempt in range(8):
-        for node in nodes():
+        for node in reversed(list(nodes())):
             value = node.get('content-desc' if description else 'text','')
             if value == label or (description and value.startswith(label)):
                 box = [int(n) for n in re.findall(r'\d+', node.get('bounds',''))]

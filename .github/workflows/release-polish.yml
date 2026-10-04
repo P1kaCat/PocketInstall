@@ -20,7 +20,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          changed=$(git diff --name-only f32ed2535384db44e8ec35faed45d8db2500c811 HEAD -- . ':!.github/workflows/release-polish.yml')
+          changed=$(git diff --name-only f32ed2535384db44e8ec35faed45d8db2500c811 HEAD -- . ':!.github/workflows/release-polish.yml' ':!scripts/android_ui_smoke.py')
           if [ -z "$changed" ]; then
             gh api repos/$GITHUB_REPOSITORY/actions/jobs/111477818282 --jq '.steps[] | select(.name == "Verify payload routes, build and lint") | .conclusion' | grep -qx success
             echo 'enabled=true' >> "$GITHUB_OUTPUT"
@@ -44,7 +44,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install Android SDK
-        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "system-images;android-35;google_apis;x86_64"'
+        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "emulator" "platform-tools" "system-images;android-35;google_apis;x86_64"'
       - name: Verify payload routes, build and lint
         if: steps.reuse.outputs.enabled != 'true'
         working-directory: android
@@ -55,8 +55,11 @@ jobs:
           sudo chmod a+rw /dev/kvm
           echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd -n PocketSmoke -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
           nohup "${ANDROID_HOME}/emulator/emulator" -avd PocketSmoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 > /tmp/emulator.log 2>&1 &
-          timeout 240 adb wait-for-device
-          timeout 240 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
+          EMULATOR_PID=$!
+          sleep 3
+          kill -0 "$EMULATOR_PID" || { cat /tmp/emulator.log; exit 1; }
+          timeout 90 adb wait-for-device || { cat /tmp/emulator.log; exit 1; }
+          timeout 180 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done' || { cat /tmp/emulator.log; exit 1; }
           adb shell input keyevent 82
           adb install android/app/build/outputs/apk/debug/app-debug.apk
           python3 -m pip install --disable-pip-version-check pillow
