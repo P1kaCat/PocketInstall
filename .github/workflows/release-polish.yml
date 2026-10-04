@@ -52,8 +52,10 @@ jobs:
       - name: Start disposable Android emulator
         run: |
           export PATH="${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:$PATH"
+          export ANDROID_AVD_HOME="${RUNNER_TEMP}/pocketinstall-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           sudo chmod a+rw /dev/kvm
-          echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd -n PocketSmoke -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
+          echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd -n PocketSmoke -p "$ANDROID_AVD_HOME/PocketSmoke.avd" -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
           nohup "${ANDROID_HOME}/emulator/emulator" -avd PocketSmoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 > /tmp/emulator.log 2>&1 &
           EMULATOR_PID=$!
           sleep 3
