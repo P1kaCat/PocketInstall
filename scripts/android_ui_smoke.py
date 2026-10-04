@@ -14,8 +14,12 @@ def adb(*args):
     return subprocess.check_output(['adb', *args], timeout=30)
 
 def nodes():
-    adb('shell','uiautomator','dump','/sdcard/window.xml')
-    return ET.fromstring(adb('exec-out','cat','/sdcard/window.xml')).iter('node')
+    try:
+        adb('shell','rm','-f','/sdcard/window.xml')
+        adb('shell','uiautomator','dump','/sdcard/window.xml')
+        return list(ET.fromstring(adb('exec-out','cat','/sdcard/window.xml')).iter('node'))
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ET.ParseError):
+        return []
 
 def tap(label, description=False):
     for attempt in range(8):
@@ -31,11 +35,17 @@ def tap(label, description=False):
 
 def launch():
     adb('shell','am','force-stop','app.pocketinstall')
-    adb('shell','am','start','-n','app.pocketinstall/.MainActivity'); time.sleep(4)
+    adb('shell','am','start','-n','app.pocketinstall/.MainActivity')
+    for attempt in range(20):
+        if any(node.get('text') == 'PocketInstall' for node in nodes()):
+            time.sleep(1); return
+        time.sleep(1)
+    raise AssertionError('Main UI did not render after launch')
 
 def capture(name):
+    assert nodes(), 'No rendered window for '+name
+    time.sleep(0.5)
     (root/(name+'.png')).write_bytes(adb('exec-out','screencap','-p'))
-    adb('shell','uiautomator','dump','/sdcard/window.xml')
     (root/(name+'.xml')).write_bytes(adb('exec-out','cat','/sdcard/window.xml'))
     assert b'app.pocketinstall' in adb('shell','dumpsys','activity','activities')
 
