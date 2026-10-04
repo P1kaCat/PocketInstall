@@ -37,7 +37,7 @@ class WinPeHttpTest {
     }
     @Test fun automaticConfigurationHasNoSessionTokenAndRetries() {
         val config = WinPeHttp.freeboxConfig(InetAddress.getByName("192.168.0.35") as Inet4Address).toString(Charsets.US_ASCII)
-        assertTrue(config.contains("chain http://192.168.0.35:8080/boot.ipxe")); assertTrue(config.contains("goto retry"))
+        assertTrue(config.contains("chain --quiet --timeout 5000 http://192.168.0.35:8080/boot.ipxe")); assertTrue(config.contains("goto retry")); assertTrue(config.contains("[2J")); assertTrue(config.contains("Ctrl-B"))
     }
     @Test fun onlyRuntimeSignalAfterFullTransfersConfirmsWinPe() {
         fun event(name: String, phase: RequestPhase = RequestPhase.FINISHED, method: String = "GET", sent: Long = 10, peer: String = "192.168.0.9") =
@@ -61,3 +61,4 @@ class WinPeHttpTest {
         s.getInputStream().readBytes().toString(Charsets.ISO_8859_1)
     }
 }
+
