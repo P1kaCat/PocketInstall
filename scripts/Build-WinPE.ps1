@@ -54,7 +54,7 @@ exit /b %errorlevel%
     $mounted = $true
     if ($WithPowerShell) {
         $ocs = Join-Path $pe 'amd64\WinPE_OCs'
-        foreach ($package in @('WinPE-WMI', 'WinPE-NetFX', 'WinPE-Scripting', 'WinPE-PowerShell', 'WinPE-StorageWMI', 'WinPE-DismCmdlets')) {
+        foreach ($package in @('WinPE-WMI', 'WinPE-NetFX', 'WinPE-Scripting', 'WinPE-PowerShell', 'WinPE-StorageWMI', 'WinPE-DismCmdlets', 'WinPE-SecureStartup', 'WinPE-SecureBootCmdlets')) {
             $cab = Join-Path $ocs "$package.cab"
             if (!(Test-Path $cab)) { throw "Matching ADK optional component missing: $cab" }
             Invoke-Checked $dism @("/Image:$mount", '/Add-Package', "/PackagePath:$cab")
@@ -117,3 +117,4 @@ exit /b %errorlevel%
     }
     Remove-Item -LiteralPath $bootstrap -ErrorAction SilentlyContinue
 }
+

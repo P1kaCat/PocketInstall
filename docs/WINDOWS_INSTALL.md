@@ -36,6 +36,8 @@ Une fois prêt, redémarre sur le disque interne. Termine OOBE, installe les pil
 
 Windows Update, Defender, Microsoft Store, les pilotes et les services ne sont pas désactivés. Les changements sont enregistrés dans `C:\PocketInstall\debloat.json`. Les applications retirées peuvent être réinstallées depuis Microsoft Store.
 
+Le nouveau ZIP WinPE inclut le pilote et le fournisseur TPM ainsi que les commandes Secure Boot. Réimporte le ZIP de cette release pour bénéficier de cette détection ; un ancien environnement sans ces composants indique « inconnu », jamais « absent » sur cette seule base. La RAM installée est lue dans les données SMBIOS, avec repli sur la RAM utilisable si ces données manquent.
+
 Windows 11 refuse les échecs connus sur RAM, nombre de cœurs et TPM 2.0. Si une information manque, elle reste inconnue ; aucune compatibilité complète n'est annoncée. Vérifie aussi le modèle du processeur dans les listes Microsoft et la capacité Secure Boot. Le chargeur PXE actuel est non signé ; aucun contournement des exigences Windows n'est appliqué.
 
 Windows 10 reste proposé pour les licences et usages correspondants, avec l'indication de fin du support standard. Le mode automatique ne le choisit pas à cause d'une faible RAM.

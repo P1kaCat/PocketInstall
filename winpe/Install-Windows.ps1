@@ -23,13 +23,21 @@ function Get-Sha256([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm
 function Get-Hardware {
     $cpu = @(Get-CimInstance Win32_Processor)
     $system = Get-CimInstance Win32_ComputerSystem
+    $ram=[long]$system.TotalPhysicalMemory; $ramSource='usable'
+    try {
+        $installed=[long]((Get-CimInstance Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum)
+        if($installed -gt 0) { $ram=$installed; $ramSource='SMBIOS' }
+    } catch {}
     $tpm = 'unknown'; $secureBoot = 'unknown'
-    try { $chip=Get-CimInstance -Namespace root/cimv2/security/microsofttpm -ClassName Win32_Tpm; if($chip) { $tpm=[string]$chip.SpecVersion } else { $tpm='absent' } } catch {}
+    # Older imported WinPE bundles lack the optional TPM driver/provider. Missing support is not proof of missing hardware.
+    if(Test-Path "$env:SystemRoot/System32/tbs.dll") {
+        try { $chip=Get-CimInstance -Namespace root/cimv2/security/microsofttpm -ClassName Win32_Tpm; if($chip) { $tpm=[string]$chip.SpecVersion } else { $tpm='absent' } } catch {}
+    }
     try { $secureBoot=[string](Confirm-SecureBootUEFI) } catch {}
     $disks = @(Get-Disk | Select-Object Number,FriendlyName,SerialNumber,UniqueId,Size,BusType,IsReadOnly,IsOffline)
     @{
         model=[string]$system.Model; cpu=($cpu.Name -join ', '); cores=[int](($cpu | Measure-Object NumberOfCores -Sum).Sum)
-        ramBytes=[long]$system.TotalPhysicalMemory; gpu=(@(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', ')
+        ramBytes=$ram; ramSource=$ramSource; gpu=(@(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', ')
         tpm=$tpm; secureBoot=$secureBoot; disks=$disks
     }
 }
