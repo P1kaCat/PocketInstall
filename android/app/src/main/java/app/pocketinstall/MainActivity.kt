@@ -144,6 +144,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             confirmButton = { TextButton(onClick = { licenseOpen = false }) { Text("Fermer") } }
         )
     }
+    val download by WindowsDownloadStore.state.collectAsState()
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
     val usbMode = if (active) state.usbMode else selectedUsb
     val pxeMode = if (active) state.pxeMode else selectedPxe
@@ -237,7 +238,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             run { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
             run {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
-                else if (debugOpen) Button(onClick = onStart, enabled = !state.importingWinPe && networks.any { it.id == chosen },
+                else if (debugOpen) Button(onClick = onStart, enabled = !state.importingWinPe && !download.active && networks.any { it.id == chosen },
                     modifier = Modifier.fillMaxWidth()) { Text("Démarrer le test EFI") }
             }
             run { OutlinedButton(onClick = { debugOpen = !debugOpen }) { Text(if (debugOpen) "Masquer le diagnostic" else "Diagnostic avancé") } }

@@ -26,14 +26,19 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var message by remember { mutableStateOf("Importe une image d'installation Windows officielle.") }
     var hash by remember { mutableStateOf("") }
     var trusted by remember { mutableStateOf(false) }
-    val locked = busy || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
+    val download by WindowsDownloadStore.state.collectAsState()
+    var resolver by remember { mutableStateOf(false) }
+    var language by remember { mutableStateOf("French") }
+    var manual by remember { mutableStateOf(false) }
+    val locked = busy || resolver || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     fun update(value: WindowsSelection = selection, install: Boolean = enabled) {
         val valid = install && image?.entries?.count { it.matches(value) } == 1
         WindowsStorage.save(context,value,valid); selection = value; enabled = valid
     }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(download.prepared) {
         try {
             image = withContext(Dispatchers.IO) { WindowsStorage.current(context)?.let { WindowsStorage.info(it) } }
+            enabled = WindowsStorage.enabled(context)
             if(image != null) message = "Image importée · éditions détectées. Le fichier sera vérifié à nouveau avant le démarrage."
         } catch(e: Exception) { message = "Image indisponible : ${e.message}"; image = null }
     }
@@ -56,6 +61,10 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
             } catch(e: Exception) { message = "Import refusé : ${e.message}" }
             finally { busy = false; onBusy(false) }
         }
+    }
+    if(resolver) MicrosoftDownloadDialog(selection.version,language,close={resolver=false}) { url,agent ->
+        resolver=false
+        WindowsDownloadService.start(context,url,agent)
     }
     Card { Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Installer Windows",style=MaterialTheme.typography.titleLarge)
@@ -83,11 +92,27 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
         if(selection.debloat != DebloatProfile.NONE) Text("Windows Update, Defender, Microsoft Store et les pilotes sont conservés. Les changements sont journalisés sur le PC.")
         Text(message)
         if(busy) LinearProgressIndicator()
-        OutlinedButton(onClick={ context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version == WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO"))) },enabled=!locked) { Text("Télécharger l'ISO officielle") }
+        Text("Langue de Windows")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected=language == "French",onClick={language="French"},enabled=!locked,label={Text("Français")})
+            FilterChip(selected=language == "English",onClick={language="English"},enabled=!locked,label={Text("English US")})
+        }
+        Button(onClick={resolver=true},enabled=!locked) { Text("Télécharger et préparer Windows") }
+        Text("ISO x64 officielle Microsoft · Home et Pro dans la même image. Prévois environ 15 à 20 Go libres. L’installation reste à confirmer sur le PC.")
+        if(download.message.isNotBlank()) Text(download.message)
+        if(download.active) {
+            if(download.total > 0) LinearProgressIndicator(progress={ (download.bytes.toFloat()/download.total).coerceIn(0f,1f) },modifier=Modifier.fillMaxWidth())
+            else LinearProgressIndicator(Modifier.fillMaxWidth())
+            OutlinedButton(onClick={WindowsDownloadService.cancel(context)}) {Text("Annuler le téléchargement")}
+        }
+        TextButton(onClick={manual=!manual},enabled=!locked) {Text(if(manual) "Masquer l’import manuel" else "Import manuel / secours")}
+        if(manual) {
+        OutlinedButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version == WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO")))},enabled=!locked) {Text("Ouvrir le site Microsoft")}
         Text("Le ZIP WinPE démarre le PC ; l'ISO Windows contient le système à installer. Import ISO9660/UDF standard ou sources/install.wim/install.esd extrait sur le téléphone.")
         OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text("SHA-256 officiel du fichier (facultatif)")},singleLine=true,modifier=Modifier.fillMaxWidth())
         WindowsCheck("Ce fichier provient d'un téléchargement officiel Microsoft",trusted,!locked) {trusted=it}
         Button(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text("Importer l'image Windows")}
+        }
         val match = image?.entries?.filter { it.matches(selection) }.orEmpty()
         if(image != null) {
             Text("Éditions disponibles : " + image!!.entries.filter { it.architecture == 9 && it.editionId in setOf("Core","Professional") }.joinToString { it.name })
