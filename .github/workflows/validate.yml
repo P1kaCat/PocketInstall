@@ -1,6 +1,10 @@
 name: Validate WinPE development
 on:
   pull_request:
+    paths-ignore:
+      - .github/**
+      - docs/**
+      - releases/**
   workflow_dispatch:
 permissions:
   contents: read

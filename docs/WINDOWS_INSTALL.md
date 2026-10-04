@@ -48,6 +48,6 @@ Le transfert WinPE, son démarrage, l'application de Windows et son premier dém
 
 Les commandes manuelles restent dans le diagnostic avancé. En cas d'échec, les journaux DISM sont dans `X:\Windows\Logs\DISM`, et ceux de l'installation dans `W:\PocketInstall` si ce volume a été créé. Après démarrage normal, ce dossier est `C:\PocketInstall`. Un token expiré nécessite une nouvelle session et un nouveau boot PXE ; il n'est pas remplacé à la main.
 
-## Validation de publication
+## Validation de cette preview
 
-La publication exige des tests Android/serveur, un boot automatique WinPE sans disque et un test distinct appliquant une image Microsoft Windows 11 Pro x64 sur un disque QCOW2 jetable, puis démarrant réellement ce disque jusqu'au signal `specialize`. Ni l'ISO ni le système Windows de test ne sont redistribués. Les captures, empreintes et journaux accompagnent la release. Le test d'installation en VM ne prouve pas une installation sur chaque PC physique, ni la fin d'OOBE, ni une validation complète des quatre éditions.
+Les tests Android/serveur et le boot automatique WinPE sans disque ont réussi. Un test distinct d'installation Windows 11 Pro sur QCOW2 jetable a été lancé, mais son résultat final n'est pas confirmé au moment de la publication de la preview 0.3.0. Le démarrage du Windows installé, l'installation physique, la fin d'OOBE et les quatre éditions restent à valider. Les tests d'installation ne redistribuent ni l'ISO ni le système Windows.

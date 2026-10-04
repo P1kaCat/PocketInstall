@@ -13,6 +13,8 @@ Le ZIP WinPE seul ne contient pas Windows à installer : importe ton ISO officie
 
 Le profil léger retire seulement Clipchamp, Solitaire, Actualités et Météo présents dans l'image. Defender, Update, Store et pilotes restent actifs. Le mode automatique ne certifie pas la compatibilité complète Windows 11.
 
-Publication conditionnée à un boot WinPE automatique et au premier boot Windows 11 Pro sur disque jetable en VM. Les preuves sont jointes. L'installation physique et la fin d'OOBE ne sont pas encore certifiées pour cette version ; Windows 10/Home ne sont pas présentés comme testés de bout en bout.
+Validation effectuée : 48 tests serveur, compilation/lint Android et démarrage PXE automatique jusqu'à WinPE avec inventaire matériel. Le test d'installation complète de Windows n'est pas terminé au moment de cette publication en preview. L'installation physique, le premier démarrage Windows et la fin d'OOBE ne sont pas confirmés pour cette version ; les quatre éditions ne sont pas présentées comme testées de bout en bout.
+
+Réimporte le nouveau ZIP WinPE de cette release : il ajoute le pilote/fournisseur TPM et les commandes Secure Boot. La RAM installée est détectée depuis SMBIOS.
 
 Guide : [installation Windows](../../docs/WINDOWS_INSTALL.md). L'APK reste une build de développement ; selon la signature de ta version précédente, Android peut demander une désinstallation puis un nouvel import.
