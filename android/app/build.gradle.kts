@@ -11,8 +11,8 @@ android {
         applicationId = "app.pocketinstall"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "3.1.1"
+        versionCode = 10
+        versionName = "3.1.2"
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "efi" }

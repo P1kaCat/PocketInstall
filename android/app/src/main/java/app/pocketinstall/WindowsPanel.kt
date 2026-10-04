@@ -32,13 +32,14 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var manual by remember { mutableStateOf(false) }
     val locked = busy || resolver || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     fun update(value: WindowsSelection = selection, install: Boolean = enabled) {
-        val valid = install && image?.entries?.count { it.matches(value) } == 1
+        val valid = install && image?.entries?.count { it.matches(value) } == 1 &&
+            runCatching { WindowsDiskSize.selectedGiB(value,checkNotNull(image)) }.isSuccess
         WindowsStorage.save(context,value,valid); selection = value; enabled = valid
     }
     LaunchedEffect(download.prepared) {
         try {
             image = withContext(Dispatchers.IO) { WindowsStorage.current(context)?.let { WindowsStorage.info(it) } }
-            enabled = WindowsStorage.enabled(context)
+            update(install=WindowsStorage.enabled(context))
             if(image != null) message = "Image importée · éditions détectées. Le fichier sera vérifié à nouveau avant le démarrage."
         } catch(e: Exception) { message = "Image indisponible : ${e.message}"; image = null }
     }
@@ -83,17 +84,23 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
         }
         if(selection.storageLayout == StorageLayout.SPLIT) {
             Text("C: pour Windows, les logiciels et les fichiers temporaires · D: pour tes fichiers et jeux.")
-            Text("Espace réservé à Windows : ${selection.systemGiB} Gio")
-            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                listOf(96,128,160).forEach { size ->
-                    FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+            WindowsCheck("Dimensionner automatiquement Windows",selection.autoSystemSize,!locked) {update(selection.copy(autoSystemSize=it))}
+            val sizing=image?.let { runCatching { WindowsDiskSize.selectedGiB(selection,it) } }
+            if(selection.autoSystemSize) {
+                Text(sizing?.getOrNull()?.let { "C: $it Gio calculés pour cette édition · D: reste du disque" }
+                    ?: "La taille sera calculée après l’import de l’édition Windows choisie.")
+                Text("Taille de l’édition + 10 Gio pour les temporaires + 16 Gio pour les mises à jour. Le calcul couvre aussi le transfert et respecte un plancher de 64 Gio pour Windows 11 / 32 Gio pour Windows 10.")
+            } else {
+                Text("Espace réservé à Windows : ${selection.systemGiB} Gio")
+                listOf(listOf(48,64,80),listOf(96,128,160),listOf(256,512)).forEach { sizes ->
+                    Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                        sizes.forEach { size ->
+                            FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+                        }
+                    }
                 }
             }
-            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                listOf(256,512).forEach { size ->
-                    FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
-                }
-            }
+            sizing?.exceptionOrNull()?.message?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             WindowsCheck("Masquer C: dans l’Explorateur",selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
             Text("D: reçoit le reste du disque (au moins 16 Gio). C: reste accessible en saisissant son chemin. Les dossiers personnels restent sur C: ; enregistre tes fichiers sur D: pour utiliser cet espace.")
         }
@@ -139,7 +146,7 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
             Text("Éditions disponibles : " + image!!.entries.filter { it.architecture == 9 && it.editionId in setOf("Core","Professional") }.joinToString { it.name })
             Text(if(match.size == 1) "${match.single().name} · index ${match.single().index} détecté" else "La sélection n'est pas disponible dans cette image. Importe l'image correspondante ou change d'édition.")
         }
-        WindowsCheck("Préparer l'installation au prochain démarrage PXE",enabled,!locked && match.size == 1) {update(install=it)}
+        WindowsCheck("Préparer l'installation au prochain démarrage PXE",enabled,!locked && match.size == 1 && runCatching { WindowsDiskSize.selectedGiB(selection,checkNotNull(image)) }.isSuccess) {update(install=it)}
         Text("Installation neuve : le disque sera choisi et l'effacement confirmé sur le PC. Le transfert commence après cet effacement. Garde le serveur ouvert jusqu'à la fin du transfert.")
         if(state.pcHardware.isNotEmpty()) Text("PC détecté : ${state.pcHardware}")
         if(state.installMessage.isNotEmpty()) Text(state.installMessage)

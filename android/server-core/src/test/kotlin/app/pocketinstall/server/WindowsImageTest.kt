@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class WindowsImageTest {
     @Test fun storageSelectionRejectsUnboundedSystemSizes() {
         assertEquals(StorageLayout.SPLIT,WindowsSelection().storageLayout)
-        for(size in listOf(96,128,160,256,512)) assertEquals(size,WindowsSelection(systemGiB=size).systemGiB)
+        for(size in listOf(48,64,80,96,128,160,256,512)) assertEquals(size,WindowsSelection(systemGiB=size).systemGiB)
         for(size in listOf(-1,0,1,63,Int.MAX_VALUE)) assertThrows(IllegalArgumentException::class.java) { WindowsSelection(systemGiB=size) }
     }
 
@@ -28,7 +28,7 @@ class WindowsImageTest {
         RandomAccessFile(file,"rw").use { it.write(header.array()); it.seek(offset); it.write(bytes) }
     }
     private val xml = "<WIM>" + listOf("Core","Professional").mapIndexed { n,edition ->
-        "<IMAGE INDEX=\"${n+1}\"><NAME>Windows 11 $edition</NAME><WINDOWS><ARCH>9</ARCH><EDITIONID>$edition</EDITIONID><VERSION><BUILD>26100</BUILD></VERSION></WINDOWS></IMAGE>"
+        "<IMAGE INDEX=\"${n+1}\"><NAME>Windows 11 $edition</NAME><TOTALBYTES>${(20L+n*15L)*WindowsDiskSize.GIB}</TOTALBYTES><WINDOWS><ARCH>9</ARCH><EDITIONID>$edition</EDITIONID><VERSION><BUILD>26100</BUILD></VERSION></WINDOWS></IMAGE>"
     }.joinToString("") + "</WIM>"
     @Test fun editionsUseMetadataNotFixedIndexesOrFileNames() {
         val file = Files.createTempFile("windows-image",".wim").toFile()
@@ -36,10 +36,23 @@ class WindowsImageTest {
             image(file,"<?xml version=\"1.0\" encoding=\"UTF-16\"?>$xml")
             val info = WindowsImageInfo(file.length(),"a".repeat(64),WindowsImage.inspect(file))
             assertEquals(2,info.selected(WindowsSelection(edition=WindowsEdition.PRO)).index)
+            assertEquals(20L*WindowsDiskSize.GIB,info.entries[0].expandedBytes)
+            assertEquals(35L*WindowsDiskSize.GIB,info.entries[1].expandedBytes)
             assertThrows(IllegalStateException::class.java) { info.selected(WindowsSelection(version=WindowsVersion.WINDOWS_10)) }
             image(file,xml.replace("<ARCH>9</ARCH>","<ARCH>12</ARCH>"))
             assertThrows(IllegalArgumentException::class.java) { WindowsImage.inspect(file) }
         } finally { file.delete() }
+    }
+    @Test fun expandedSizeMustComeFromSelectedEditionAndBeBounded() {
+        val file=Files.createTempFile("windows-size",".wim").toFile()
+        try {
+            image(file,xml.replace("<WIM>","<WIM><TOTALBYTES>12345</TOTALBYTES>"))
+            assertEquals(20L*WindowsDiskSize.GIB,WindowsImage.inspect(file)[0].expandedBytes)
+            image(file,xml.replace((20L*WindowsDiskSize.GIB).toString(),"-1"))
+            assertThrows(IllegalArgumentException::class.java) {WindowsImage.inspect(file)}
+            image(file,xml.replace((20L*WindowsDiskSize.GIB).toString(),Long.MAX_VALUE.toString()))
+            assertThrows(IllegalArgumentException::class.java) {WindowsImage.inspect(file)}
+        } finally {file.delete()}
     }
     @Test fun rejectsExternalEntitiesSplitImagesAndTruncatedMetadata() {
         val file = Files.createTempFile("windows-invalid",".wim").toFile()

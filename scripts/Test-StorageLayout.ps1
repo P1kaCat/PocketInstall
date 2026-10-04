@@ -48,6 +48,15 @@ Assert ($split -match 'assign letter=U' -and $single -notmatch 'label=MesFichier
 Reject {New-PartitionScript 0 SPLIT 1} 'Unsafe Windows size accepted.'
 Reject {New-PartitionScript -1 SPLIT 128} 'Invalid disk accepted.'
 Write-Host 'PASS: single/split layout, sizing and recovery order.'
+Assert ((Get-MinimumSystemGiB WINDOWS_11 20GB 5GB) -eq 64) 'Windows 11 storage floor not preserved.'
+Assert ((Get-MinimumSystemGiB WINDOWS_10 20GB 5GB) -eq 48) 'Windows 10 should not reserve 128 GiB.'
+Assert ((Get-MinimumSystemGiB WINDOWS_10 35GB 6GB) -eq 64) 'Edition size and margins not respected.'
+Assert ((Get-MinimumSystemGiB WINDOWS_11 50GB 16GB) -eq 76) 'Peak and steady requirements not respected.'
+Reject {Get-MinimumSystemGiB WINDOWS_11 0 5GB} 'Absent expanded size accepted.'
+Reject {Get-MinimumSystemGiB WINDOWS_11 512GB 5GB} 'Oversized edition accepted.'
+Reject {New-PartitionScript 0 SPLIT 51} 'Unaligned automatic size accepted.'
+Assert ((New-PartitionScript 0 SPLIT 48) -match 'create partition primary size=49152') 'Computed size was not used in DiskPart.'
+Write-Host 'PASS: automatic edition sizes, Microsoft floors and transfer headroom.'
 $testDir=Join-Path ([IO.Path]::GetTempPath()) ('pocketinstall-storage-'+[guid]::NewGuid())
 [IO.Directory]::CreateDirectory($testDir) | Out-Null
 New-PSDrive -Name X -PSProvider FileSystem -Root $testDir | Out-Null
