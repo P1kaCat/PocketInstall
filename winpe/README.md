@@ -1,7 +1,7 @@
 # WinPE : étape suivante préparée
 
 **Ces scripts n'ont pas été exécutés sous Windows dans cette livraison.** La chaîne
-WinPE est préparée, pas certifiée. L'APK livré sert seulement le POC EFI autonome.
+Le boot WinPE a été validé en VM et sur le PC de test. Le parcours d'installation Windows et ses limites sont décrits dans [le guide](../docs/WINDOWS_INSTALL.md). Les nouveaux états de premier boot ne doivent pas être déduits d'un téléchargement.
 
 ## Poste de préparation
 
@@ -86,3 +86,4 @@ dans le dépôt.
 
 Le réseau Wi-Fi préboot n'est pas hérité par WinPE. Microsoft ne prend pas en
 charge son Wi-Fi général ; Ethernet PC est le prérequis de ce parcours initial.
+

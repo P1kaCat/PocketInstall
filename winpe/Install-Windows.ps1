@@ -29,7 +29,7 @@ function Get-Hardware {
     $disks = @(Get-Disk | Select-Object Number,FriendlyName,SerialNumber,UniqueId,Size,BusType,IsReadOnly,IsOffline)
     @{
         model=[string]$system.Model; cpu=($cpu.Name -join ', '); cores=[int](($cpu | Measure-Object NumberOfCores -Sum).Sum)
-        ramBytes=[long]$system.TotalPhysicalMemory; gpu=(@(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue).Name -join ', ')
+        ramBytes=[long]$system.TotalPhysicalMemory; gpu=(@(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', ')
         tpm=$tpm; secureBoot=$secureBoot; disks=$disks
     }
 }

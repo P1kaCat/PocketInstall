@@ -1,3 +1,7 @@
+## Installation Windows depuis le téléphone
+
+Le parcours d'installation et le menu Windows 10/11 Home/Pro sont décrits dans [docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md). Le ZIP WinPE ne remplace pas une image Windows officielle. L'installation neuve exige le choix du disque et une confirmation locale d'effacement. Les états de transfert, WinPE, application de Windows et premier boot Windows sont séparés.
+
 # PocketInstall
 
 Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur le
@@ -202,3 +206,4 @@ Les droits précédemment accordés sous MIT sur le POC 0.1.0 restent valables.
 Notices GNU-EFI et dépendances Android conservées. Les
 droits de redistribution WinPE/Windows doivent être examinés avant publication
 d'images : [docs/LICENSING.md](docs/LICENSING.md).
+

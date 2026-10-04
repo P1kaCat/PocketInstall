@@ -28,7 +28,8 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var trusted by remember { mutableStateOf(false) }
     val locked = busy || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     fun update(value: WindowsSelection = selection, install: Boolean = enabled) {
-        WindowsStorage.save(context,value,install); selection = value; enabled = install
+        val valid = install && image?.entries?.count { it.matches(value) } == 1
+        WindowsStorage.save(context,value,valid); selection = value; enabled = valid
     }
     LaunchedEffect(Unit) {
         try {
@@ -50,6 +51,7 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
                         }
                     } ?: error("Fichier inaccessible.")
                 }
+                update(install=false)
                 message = "Image importée et intégrité enregistrée. Choisis Windows puis l'édition."
             } catch(e: Exception) { message = "Import refusé : ${e.message}" }
             finally { busy = false; onBusy(false) }
