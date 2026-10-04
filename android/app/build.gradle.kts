@@ -11,8 +11,8 @@ android {
         applicationId = "app.pocketinstall"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "3.1.2"
+        versionCode = 11
+        versionName = "3.1.3"
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "efi" }
@@ -33,4 +33,3 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
-

@@ -8,6 +8,25 @@ if($errors.Count) { $errors | Out-Host; throw 'Installer syntax invalid.' }
 foreach($node in $ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst]},$false)) { . ([scriptblock]::Create($node.Extent.Text)) }
 function Assert($ok,[string]$message) { if(!$ok) { throw $message } }
 function Reject([scriptblock]$action,[string]$message) { $rejected=$false; try { & $action | Out-Null } catch { $rejected=$true }; Assert $rejected $message }
+# Regression: WinPE DISM exposes Version as a string. StrictMode previously
+# failed on Version.Build after partitioning, before applying the image.
+$imageInfo=[pscustomobject]@{Version='10.0.26100.1';Architecture=9;EditionId='Professional'}
+$imagePlan=[pscustomobject]@{version='WINDOWS_11';editionId='Professional'}
+Assert-WindowsImageMatchesPlan $imageInfo $imagePlan
+$imageInfo.Version=[version]'10.0.22000.1'; Assert-WindowsImageMatchesPlan $imageInfo $imagePlan
+$imageInfo.Version='10.0.19045.0'; Reject {Assert-WindowsImageMatchesPlan $imageInfo $imagePlan} 'Windows 10 accepted as Windows 11.'
+$imagePlan.version='WINDOWS_10'; Assert-WindowsImageMatchesPlan $imageInfo $imagePlan
+$imageInfo.Version='10.0.22000.0'; Reject {Assert-WindowsImageMatchesPlan $imageInfo $imagePlan} 'Windows 11 accepted as Windows 10.'
+foreach($invalid in @('garbage','','10.0','10.0.10239.0','6.3.9600.0','11.0.26100.1',$null)) {
+    $imageInfo.Version=$invalid
+    Reject {Assert-WindowsImageMatchesPlan $imageInfo $imagePlan} 'Malformed or unsupported version accepted.'
+}
+Reject {Assert-WindowsImageMatchesPlan ([pscustomobject]@{Architecture=9;EditionId='Professional'}) $imagePlan} 'Missing DISM Version accepted.'
+$imageInfo.Version='10.0.19045.0'; $imageInfo.Architecture=0
+Reject {Assert-WindowsImageMatchesPlan $imageInfo $imagePlan} 'Wrong image architecture accepted.'
+$imageInfo.Architecture=9; $imageInfo.EditionId='Core'
+Reject {Assert-WindowsImageMatchesPlan $imageInfo $imagePlan} 'Wrong edition accepted.'
+Write-Host 'PASS: DISM text/typed versions, OS boundary and edition/architecture validation.'
 $script:parts=@{}
 $script:mounts=@{}
 $script:volumes=@{}

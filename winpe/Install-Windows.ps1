@@ -20,6 +20,17 @@ function Invoke-Checked([string]$file, [string[]]$arguments) {
     if ($LASTEXITCODE -ne 0) { throw "$file failed ($LASTEXITCODE). Installation interrupted; see console and logs." }
 }
 function Get-Sha256([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Assert-WindowsImageMatchesPlan($info, $plan) {
+    # DISM returns Version as text in WinPE, not necessarily as System.Version.
+    # Normalize before reading Build; never guess an OS from an invalid version.
+    foreach($name in @('Version','Architecture','EditionId')) {
+        if($null -eq $info -or $null -eq $info.PSObject.Properties[$name]) { throw "DISM image metadata missing: $name." }
+    }
+    $version=$null
+    if(![version]::TryParse([string]$info.Version,[ref]$version) -or $version.Major -ne 10 -or $version.Minor -ne 0 -or $version.Build -lt 10240) { throw 'DISM image version invalid or unsupported.' }
+    $matchesVersion=($plan.version -eq 'WINDOWS_11' -and $version.Build -ge 22000) -or ($plan.version -eq 'WINDOWS_10' -and $version.Build -lt 22000)
+    if([int]$info.Architecture -ne 9 -or [string]$info.EditionId -cne [string]$plan.editionId -or !$matchesVersion) { throw 'Edition/version/architecture does not match the selected image.' }
+}
 function Get-Hardware {
     $cpu = @(Get-CimInstance Win32_Processor)
     $system = Get-CimInstance Win32_ComputerSystem
@@ -265,7 +276,7 @@ try {
     $image="$work/install.wim"; Receive-Image $image ([long]$plan.bytes) ([string]$plan.sha256)
     Send-Report 'verifying'
     $info=Get-WindowsImage -ImagePath $image -Index ([int]$plan.index)
-    if([int]$info.Architecture -ne 9 -or [string]$info.EditionId -cne [string]$plan.editionId -or ($plan.version -eq 'WINDOWS_11' -and $info.Version.Build -lt 22000) -or ($plan.version -eq 'WINDOWS_10' -and ($info.Version.Build -lt 10240 -or $info.Version.Build -ge 22000))) { throw 'Edition/version/architecture does not match the selected image.' }
+    Assert-WindowsImageMatchesPlan $info $plan
     if($plan.schema -eq 3) {
         $actualMinimum=Get-MinimumSystemGiB ([string]$plan.version) ([long]$info.ImageSize) ([long]$plan.bytes)
         if($windowsPartition.Size+1MB -lt $actualMinimum*1GB) { throw 'DISM signale une edition plus grande que les metadonnees: aucun fichier Windows applique. Choisis une taille manuelle suffisante.' }
