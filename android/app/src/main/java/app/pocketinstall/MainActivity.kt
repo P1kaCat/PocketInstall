@@ -190,7 +190,6 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             if (!active) {
                 run {
                     Text("Connexion", style = MaterialTheme.typography.titleMedium)
-                    if (debugOpen) {
                     Row {
                         RadioButton(selected = !usbMode, onClick = { onMode(false) })
                         Text("LAN · Wi-Fi / Ethernet", Modifier.padding(top = 12.dp))
@@ -199,6 +198,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                         RadioButton(selected = usbMode, onClick = { onMode(true) })
                         Text("Câble USB · expérimental", Modifier.padding(top = 12.dp))
                     }
+                    if (debugOpen) {
                     if (usbMode) {
                         Text("Branche un câble USB de données puis active le partage de connexion USB dans les paramètres Android. Reviens ici et actualise.")
                         Text("Le PC doit reconnaître ce réseau USB dans son UEFI et proposer HTTP Boot dessus. MTP et la recharge ne suffisent pas. Ce mode ne transforme pas le téléphone en clé USB bootable.",

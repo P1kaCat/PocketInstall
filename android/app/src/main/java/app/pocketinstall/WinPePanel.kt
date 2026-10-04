@@ -52,7 +52,15 @@ fun WinPePanel(state: ServerSnapshot, canStart: Boolean, onStart: () -> Unit, on
                         ?: error("Fichier inaccessible.")
                 }
                 ready = true; message = "Environnement validé. Appuie sur Démarrer pour attendre le PC."
-            } catch (e: Exception) { message = "Import refusé : ${e.message ?: e.javaClass.simpleName}" }
+            } catch (e: Exception) {
+                ready = withContext(Dispatchers.IO) {
+                    runCatching {
+                        WinPeStorage.current(context)?.also { WinPeStorage.verify(it); WinPeHttp.preflight(it) } != null
+                    }.getOrDefault(false)
+                }
+                message = "Import refusé : ${e.message ?: e.javaClass.simpleName}" +
+                    if (ready) "\nL'environnement précédent reste disponible." else ""
+            }
             finally { importing = false; onBusy(false) }
         }
     }
