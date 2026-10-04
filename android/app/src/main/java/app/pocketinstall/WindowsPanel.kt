@@ -77,6 +77,27 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { WindowsEdition.entries.forEach { edition ->
             FilterChip(selected=selection.edition == edition,onClick={update(selection.copy(edition=edition))},enabled=!locked,label={Text(edition.label)})
         } }
+        Text("Organisation du disque",style=MaterialTheme.typography.titleMedium)
+        StorageLayout.entries.forEach { layout ->
+            FilterChip(selected=selection.storageLayout == layout,onClick={update(selection.copy(storageLayout=layout))},enabled=!locked,label={Text(layout.label)})
+        }
+        if(selection.storageLayout == StorageLayout.SPLIT) {
+            Text("C: pour Windows, les logiciels et les fichiers temporaires · D: pour tes fichiers et jeux.")
+            Text("Espace réservé à Windows : ${selection.systemGiB} Gio")
+            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                listOf(96,128,160).forEach { size ->
+                    FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+                }
+            }
+            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                listOf(256,512).forEach { size ->
+                    FilterChip(selected=selection.systemGiB == size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+                }
+            }
+            WindowsCheck("Masquer C: dans l’Explorateur",selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
+            Text("D: reçoit le reste du disque (au moins 16 Gio). C: reste accessible en saisissant son chemin. Les dossiers personnels restent sur C: ; enregistre tes fichiers sur D: pour utiliser cet espace.")
+        }
+        Text("Les petites partitions de démarrage et de récupération restent masquées. Le choix et l’effacement du disque sont confirmés sur le PC.")
         Text("Débloat")
         DebloatProfile.entries.forEach { profile ->
             FilterChip(selected=selection.debloat == profile,onClick={update(selection.copy(debloat=profile))},enabled=!locked,label={Text(profile.label)})

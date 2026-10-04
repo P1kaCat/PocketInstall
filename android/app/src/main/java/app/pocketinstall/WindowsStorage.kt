@@ -15,13 +15,16 @@ object WindowsStorage {
         return WindowsSelection(choice("version",WindowsVersion.entries.toTypedArray(),WindowsVersion.WINDOWS_11),
             choice("edition",WindowsEdition.entries.toTypedArray(),WindowsEdition.HOME),
             choice("debloat",DebloatProfile.entries.toTypedArray(),DebloatProfile.NONE),
-            p.getBoolean("clipchamp",false),p.getBoolean("solitaire",false),p.getBoolean("news",false),p.getBoolean("weather",false))
+            p.getBoolean("clipchamp",false),p.getBoolean("solitaire",false),p.getBoolean("news",false),p.getBoolean("weather",false),
+            choice("storageLayout",StorageLayout.entries.toTypedArray(),StorageLayout.SPLIT),
+            p.getInt("systemGiB",128).takeIf { it in setOf(96,128,160,256,512) } ?: 128,p.getBoolean("hideSystemDrive",true))
     }
     fun save(context: Context, selection: WindowsSelection, enabled: Boolean) {
         check(prefs(context).edit().putString("version",selection.version.name).putString("edition",selection.edition.name)
             .putString("debloat",selection.debloat.name).putBoolean("clipchamp",selection.removeClipchamp)
             .putBoolean("solitaire",selection.removeSolitaire).putBoolean("news",selection.removeNews)
-            .putBoolean("weather",selection.removeWeather).putBoolean("enabled",enabled).commit())
+            .putBoolean("weather",selection.removeWeather).putString("storageLayout",selection.storageLayout.name)
+            .putInt("systemGiB",selection.systemGiB).putBoolean("hideSystemDrive",selection.hideSystemDrive).putBoolean("enabled",enabled).commit())
     }
     fun enabled(context: Context) = prefs(context).getBoolean("enabled",false)
     fun current(context: Context): File? {
@@ -94,9 +97,11 @@ object WindowsStorage {
     }
     fun plan(selection: WindowsSelection, info: WindowsImageInfo): ByteArray {
         val image = info.selected(selection)
-        return JSONObject().put("schema",1).put("enabled",true).put("version",selection.version.name)
+        return JSONObject().put("schema",2).put("enabled",true).put("version",selection.version.name)
             .put("editionId",selection.edition.editionId).put("index",image.index).put("bytes",info.bytes).put("sha256",info.sha256)
             .put("debloat",selection.debloat.name).put("removeClipchamp",selection.removeClipchamp).put("removeSolitaire",selection.removeSolitaire)
-            .put("removeNews",selection.removeNews).put("removeWeather",selection.removeWeather).toString().toByteArray(Charsets.UTF_8)
+            .put("removeNews",selection.removeNews).put("removeWeather",selection.removeWeather)
+            .put("storageLayout",selection.storageLayout.name).put("systemGiB",selection.systemGiB)
+            .put("hideSystemDrive",selection.storageLayout == StorageLayout.SPLIT && selection.hideSystemDrive).toString().toByteArray(Charsets.UTF_8)
     }
 }

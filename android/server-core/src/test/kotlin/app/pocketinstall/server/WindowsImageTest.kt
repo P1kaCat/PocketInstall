@@ -13,6 +13,12 @@ import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
 
 class WindowsImageTest {
+    @Test fun storageSelectionRejectsUnboundedSystemSizes() {
+        assertEquals(StorageLayout.SPLIT,WindowsSelection().storageLayout)
+        for(size in listOf(96,128,160,256,512)) assertEquals(size,WindowsSelection(systemGiB=size).systemGiB)
+        for(size in listOf(-1,0,1,63,Int.MAX_VALUE)) assertThrows(IllegalArgumentException::class.java) { WindowsSelection(systemGiB=size) }
+    }
+
     private fun image(file: File, xml: String, offset: Long = 208) {
         val bytes = xml.toByteArray(Charsets.UTF_16LE)
         val header = ByteBuffer.allocate(208).order(ByteOrder.LITTLE_ENDIAN)
