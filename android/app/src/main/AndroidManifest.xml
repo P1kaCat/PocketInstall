@@ -14,7 +14,9 @@
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/ic_pocketinstall"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config"
         android:usesCleartextTraffic="false"
         android:supportsRtl="true"
         android:theme="@style/Theme.PocketInstall">
@@ -25,6 +27,10 @@
             </intent-filter>
         </activity>
         <service android:name=".WindowsDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false" android:exported="false">
+            <meta-data android:name="autoStoreLocales" android:value="true" />
+        </service>
         <service android:name=".PocketInstallService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />
     </application>
