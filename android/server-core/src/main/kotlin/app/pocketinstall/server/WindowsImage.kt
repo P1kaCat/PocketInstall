@@ -48,8 +48,14 @@ object WindowsImage {
         val xmlBytes = ByteArray(size.toInt()); input.seek(offset); input.readFully(xmlBytes)
         val xml = xmlBytes.toString(Charsets.UTF_16LE).removePrefix("\uFEFF")
         require(!xml.contains("<!DOCTYPE", true) && !xml.contains("<!ENTITY", true)) { "Déclarations XML interdites." }
-        val factory = DocumentBuilderFactory.newInstance().apply { isExpandEntityReferences = false; isXIncludeAware = false }
-        val document = factory.newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            isExpandEntityReferences = false
+            // Android's parser does not implement this setter; XInclude is disabled by default.
+            try { isXIncludeAware = false } catch (_: UnsupportedOperationException) { }
+        }
+        val builder = factory.newDocumentBuilder()
+        builder.setEntityResolver { _, _ -> throw org.xml.sax.SAXException("Référence XML externe interdite.") }
+        val document = builder.parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
         require(document.documentElement.tagName == "WIM")
         fun Element.child(tag: String): Element? = (0 until childNodes.length).map { childNodes.item(it) }
             .filterIsInstance<Element>().singleOrNull { it.tagName == tag }

@@ -57,6 +57,7 @@ def main():
             qemu = subprocess.Popen(cmd,stdout=qlog,stderr=subprocess.STDOUT)
             deadline = time.monotonic()+a.timeout
             while not ((out / 'winpe-started').exists() and (out / 'report-inventory').exists()):
+                if (out / 'report-error').exists(): raise RuntimeError((out / 'report-error').read_text())
                 if qemu.poll() is not None: raise RuntimeError('VM exited before WinPE runtime callback')
                 if time.monotonic()>deadline: raise TimeoutError('No WinPE runtime callback; HTTP downloads are not proof of boot')
                 time.sleep(1)

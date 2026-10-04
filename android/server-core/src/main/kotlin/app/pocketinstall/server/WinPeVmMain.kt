@@ -24,7 +24,7 @@ fun main(args: Array<String>) {
         reportHandler = { _,body ->
             val text = body.toString(Charsets.UTF_8)
             val stage = Regex(""""stage"\s*:\s*"([a-z-]+)"""").find(text)?.groupValues?.get(1)
-            if(stage != null && progress.stage == WinPeStage.STARTED) {
+            if(stage != null && synchronized(log) { progress.stage == WinPeStage.STARTED }) {
                 File(output,"report-$stage").writeText(text)
                 true
             } else false
@@ -41,4 +41,3 @@ fun main(args: Array<String>) {
         done.await()
     }
 }
-

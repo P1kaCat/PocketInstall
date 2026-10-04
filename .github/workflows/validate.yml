@@ -47,7 +47,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   windows-install-test:
-    needs: [android, winpe]
+    needs: android
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -62,6 +62,8 @@ jobs:
         with:
           name: winpe-ready
           path: winpe-out
+          run-id: 37161864011
+          github-token: ${{ github.token }}
       - name: Prepare isolated Windows installation test
         run: |
           sudo apt-get update -qq
