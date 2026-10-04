@@ -30,6 +30,14 @@ object WindowsIso {
         return entries
     }
     fun extract(iso: File, destination: File) {
+        try { extractIso9660(iso,destination) }
+        catch(isoError: Exception) {
+            if(Thread.currentThread().isInterrupted) throw isoError
+            try { WindowsUdf.extract(iso,destination) }
+            catch(udfError: Exception) { throw IllegalArgumentException("ISO non prise en charge ou incomplète. Extrais sources/install.wim ou install.esd puis importe ce fichier. ${udfError.message}",udfError) }
+        }
+    }
+    private fun extractIso9660(iso: File, destination: File) {
         require(!destination.exists())
         try { RandomAccessFile(iso,"r").use { input ->
             require(input.length() <= WindowsImage.MAX_BYTES && input.length() >= 17 * 2048)

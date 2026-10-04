@@ -91,6 +91,7 @@ try {
     $candidates=@(Get-Disk | Where-Object { !$_.IsReadOnly -and !$_.IsOffline -and $_.BusType -notin @('USB','SD','MMC') -and $_.Size -ge 64GB })
     if(!$candidates.Count) { throw 'Aucun disque interne accessible de 64 Go minimum. Aucun disque modifie.' }
     $candidates | Format-Table Number,FriendlyName,SerialNumber,@{Label='Go';Expression={[Math]::Round($_.Size/1GB,1)}} -AutoSize | Out-Host
+    Send-Report 'awaiting-disk'
     $numberText=Read-Host 'Numero du disque cible (vide pour annuler)'
     if($numberText -notmatch '^\d{1,4}$') { Write-Host 'Installation annulee. Aucun disque modifie.'; return }
     $disk=$candidates | Where-Object Number -eq ([int]$numberText) | Select-Object -First 1
@@ -103,6 +104,7 @@ try {
     Write-Host "EFFACEMENT: disque $($identity.number), $($identity.model), serie $($identity.serial), $([Math]::Round($identity.size/1GB,1)) Go."
     Write-Host 'Le transfert Windows commence apres le partitionnement. En cas de panne reseau, ce disque restera efface; la console et les journaux resteront disponibles.'
     $phrase="EFFACER $($identity.number)"
+    Send-Report 'awaiting-confirmation' $null "Disque $($identity.number), $($identity.model), serie $($identity.serial)"
     if((Read-Host "Tape exactement '$phrase' pour confirmer") -cne $phrase) { Write-Host 'Annule. Aucun disque modifie.'; return }
     $check=Get-Disk -Number $identity.number
     if([string]$check.UniqueId -cne $identity.uniqueId -or [long]$check.Size -ne $identity.size -or [string]$check.SerialNumber -cne $identity.serial -or $check.IsReadOnly -or $check.IsOffline) { throw 'Identite du disque modifiee. Aucun disque modifie.' }
@@ -165,6 +167,37 @@ exit
     New-Item -ItemType Directory -Path R:\Recovery\WindowsRE | Out-Null
     Copy-Item -LiteralPath $winre -Destination R:\Recovery\WindowsRE\Winre.wim
     Invoke-Checked W:\Windows\System32\reagentc.exe @('/SetReImage','/Path','R:\Recovery\WindowsRE','/Target','W:\Windows')
+    # Specialize runs only after the installed OS starts. No OOBE/account/license settings are bypassed.
+    $panther='W:\Windows\Panther'; New-Item -ItemType Directory -Path $panther -Force | Out-Null
+    if(Test-Path "$panther/unattend.xml") { throw 'An existing answer file must be reviewed before adding the startup signal.' }
+    $bootScript=@'
+$ErrorActionPreference='Stop'
+if(Test-Path HKLM:\SYSTEM\CurrentControlSet\Control\MiniNT) { exit 1 }
+$success=$false
+for($attempt=0; $attempt -lt 12; $attempt++) {
+    try {
+        $body=[Text.Encoding]::UTF8.GetBytes('{"stage":"windows-started","message":"Signal du Windows installe pendant specialize; OOBE reste a terminer."}')
+        $request=[Net.HttpWebRequest]::Create('__BASE__/install/report')
+        $request.Proxy=$null; $request.Method='POST'; $request.ContentType='application/json'; $request.ContentLength=$body.Length
+        $request.Timeout=3000; $request.ReadWriteTimeout=3000
+        $stream=$request.GetRequestStream(); try { $stream.Write($body,0,$body.Length) } finally { $stream.Dispose() }
+        $response=$request.GetResponse(); $response.Dispose(); $success=$true; break
+    } catch { Start-Sleep -Seconds 2 }
+}
+if($success) { Remove-Item -LiteralPath $PSCommandPath -Force }
+exit 0
+'@
+    $bootScript.Replace('__BASE__',$BaseUrl) | Set-Content "$work/Windows-Started.ps1" -Encoding UTF8
+    @'
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <RunSynchronous><RunSynchronousCommand wcm:action="add"><Order>1</Order><Description>PocketInstall startup signal</Description><Path>cmd.exe /c powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SystemDrive%\PocketInstall\Windows-Started.ps1"</Path></RunSynchronousCommand></RunSynchronous>
+    </component>
+  </settings>
+</unattend>
+'@ | Set-Content "$panther/unattend.xml" -Encoding UTF8
     Remove-Item -LiteralPath $image -Force
     Stop-Transcript | Out-Null
     Send-Report 'prepared' $null 'Windows applique, boot UEFI et WinRE prepares. Premier demarrage Windows a confirmer sur le PC.'

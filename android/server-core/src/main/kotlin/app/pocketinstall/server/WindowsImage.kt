@@ -49,7 +49,7 @@ object WindowsImage {
         val xml = xmlBytes.toString(Charsets.UTF_16LE).removePrefix("\uFEFF")
         require(!xml.contains("<!DOCTYPE", true) && !xml.contains("<!ENTITY", true)) { "Déclarations XML interdites." }
         val factory = DocumentBuilderFactory.newInstance().apply { isExpandEntityReferences = false; isXIncludeAware = false }
-        val document = factory.newDocumentBuilder().parse(xml.byteInputStream(Charsets.UTF_8))
+        val document = factory.newDocumentBuilder().parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
         require(document.documentElement.tagName == "WIM")
         fun Element.child(tag: String): Element? = (0 until childNodes.length).map { childNodes.item(it) }
             .filterIsInstance<Element>().singleOrNull { it.tagName == tag }

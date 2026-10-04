@@ -27,7 +27,7 @@ class WindowsImageTest {
     @Test fun editionsUseMetadataNotFixedIndexesOrFileNames() {
         val file = Files.createTempFile("windows-image",".wim").toFile()
         try {
-            image(file,xml)
+            image(file,"<?xml version=\"1.0\" encoding=\"UTF-16\"?>$xml")
             val info = WindowsImageInfo(file.length(),"a".repeat(64),WindowsImage.inspect(file))
             assertEquals(2,info.selected(WindowsSelection(edition=WindowsEdition.PRO)).index)
             assertThrows(IllegalStateException::class.java) { info.selected(WindowsSelection(version=WindowsVersion.WINDOWS_10)) }

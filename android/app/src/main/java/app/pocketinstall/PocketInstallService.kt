@@ -189,13 +189,18 @@ class PocketInstallService : Service() {
 
     private fun acceptReport(peer: String, body: ByteArray): Boolean = runCatching {
         val current = ServerStore.state.value
-        require(current.winPeMode && current.winPeProgress.peer == peer &&
+        val incomingStage = JSONObject(body.toString(Charsets.UTF_8)).getString("stage")
+        require(current.winPeMode && (current.winPeProgress.peer == peer ||
+            incomingStage == "windows-started" && current.installMessage.startsWith("Windows appliqué")) &&
             current.winPeProgress.stage == app.pocketinstall.server.WinPeStage.STARTED)
         val json = JSONObject(body.toString(Charsets.UTF_8))
-        val labels = mapOf("inventory" to "Matériel détecté", "partitioning" to "Partitionnement du disque confirmé sur le PC",
+        val labels = mapOf("inventory" to "Matériel détecté", "awaiting-disk" to "Choisis le disque sur le PC",
+            "awaiting-confirmation" to "Confirme l'effacement sur le PC", "partitioning" to "Partitionnement du disque confirmé sur le PC",
             "downloading" to "Transfert de l'image Windows", "verifying" to "Vérification de l'image sur le PC",
             "applying" to "Installation de Windows", "configuring" to "Configuration et débloat",
-            "prepared" to "Windows appliqué · premier démarrage à confirmer sur le PC", "error" to "Installation interrompue")
+            "prepared" to "Windows appliqué · premier démarrage à confirmer sur le PC",
+            "windows-started" to "Windows démarré · termine la configuration sur le PC", "error" to "Installation interrompue")
+        if(incomingStage == "windows-started") require(current.installMessage.startsWith("Windows appliqué"))
         val stage = json.getString("stage"); require(stage in labels)
         val hardware = json.optJSONObject("hardware")
         val summary = hardware?.let { "${it.optString("model").take(100)} · ${it.optString("cpu").take(150)} · " +
@@ -261,4 +266,3 @@ class PocketInstallService : Service() {
         private const val CHANNEL = "pocketinstall-session"
     }
 }
-

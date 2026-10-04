@@ -82,7 +82,7 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
         Text(message)
         if(busy) LinearProgressIndicator()
         OutlinedButton(onClick={ context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version == WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO"))) },enabled=!locked) { Text("Télécharger l'ISO officielle") }
-        Text("Le ZIP WinPE démarre le PC ; l'ISO Windows contient le système à installer. Import ISO9660 ou sources/install.wim/install.esd extrait sur le téléphone. Les ISO UDF seules doivent être extraites au préalable.")
+        Text("Le ZIP WinPE démarre le PC ; l'ISO Windows contient le système à installer. Import ISO9660/UDF standard ou sources/install.wim/install.esd extrait sur le téléphone.")
         OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text("SHA-256 officiel du fichier (facultatif)")},singleLine=true,modifier=Modifier.fillMaxWidth())
         WindowsCheck("Ce fichier provient d'un téléchargement officiel Microsoft",trusted,!locked) {trusted=it}
         Button(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text("Importer l'image Windows")}
