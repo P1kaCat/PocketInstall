@@ -233,6 +233,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     OutlinedButton(onClick = onRefresh) { Text("Actualiser les réseaux") }
                 }
             }
+            WindowsPanel(state) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } }
             run { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
             run {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
@@ -281,3 +282,4 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
         }
     }
 }
+

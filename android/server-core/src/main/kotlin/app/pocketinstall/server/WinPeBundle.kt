@@ -112,6 +112,8 @@ initrd --name boot.sdi ${'$'}{base}/winpe/boot.sdi boot.sdi || goto failed
 initrd --name boot.wim ${'$'}{base}/winpe/boot.wim boot.wim || goto failed
 initrd --name pocketinstall.cmd ${'$'}{base}/winpe/pocketinstall.cmd pocketinstall.cmd || goto failed
 initrd --name pocketinstall.ps1 ${'$'}{base}/winpe/pocketinstall.ps1 pocketinstall.ps1 || goto failed
+initrd --name install.ps1 ${'$'}{base}/winpe/install.ps1 install.ps1 || goto failed
+initrd --name install-plan.json ${'$'}{base}/winpe/install-plan.json install-plan.json || goto failed
 initrd --name winpeshl.ini ${'$'}{base}/winpe/winpeshl.ini winpeshl.ini || goto failed
 boot || goto failed
 :failed
@@ -120,3 +122,4 @@ shell
 """.toByteArray(Charsets.US_ASCII)
     }
 }
+

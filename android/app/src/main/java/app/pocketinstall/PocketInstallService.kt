@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.io.File
+import org.json.JSONObject
 
 class PocketInstallService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -102,8 +104,16 @@ class PocketInstallService : Service() {
         val resources = mutableMapOf("bootx64.efi" to BootResource(length, "application/efi") { assets.open("boot/bootx64.efi") })
         val directory = if (winPe) WinPeStorage.current(this)?.also { WinPeStorage.verify(it) }
             ?: error("Importe un bundle WinPE d'abord.") else null
+        val windows = if (winPe && WindowsStorage.enabled(this)) WindowsStorage.current(this)
+            ?: error("Importe une image Windows avant de préparer l'installation.") else null
+        val imageInfo = windows?.let { WindowsStorage.info(it, verifyHash = true) }
+        val installPlan = imageInfo?.let { WindowsStorage.plan(WindowsStorage.selection(this), it) }
+            ?: "{\"enabled\":false}".toByteArray()
         val http = LocalHttpServer(lan.address, subnet, if (winPe) emptyMap() else resources,
-            resourceFactory = if (directory != null) ({ base -> WinPeHttp.resources(directory, base) }) else null,
+            resourceFactory = if (directory != null) ({ base ->
+                WinPeHttp.resources(directory, base, installPlan) + if(windows != null && imageInfo != null)
+                    mapOf("install/image.wim" to BootResource(imageInfo.bytes,"application/octet-stream") { File(windows,"image.wim").inputStream() }) else emptyMap()
+            }) else null,
             publicAliases = if (winPe) WinPeHttp.aliases else emptyMap(),
             monotonicMillis = { SystemClock.elapsedRealtime() },
             onEvent = { event ->
@@ -119,7 +129,8 @@ class PocketInstallService : Service() {
                         clientsSeen = peers.size, events = entries.takeLast(50),
                         winPeProgress = if (winPe) old.winPeProgress.accept(event) else old.winPeProgress)
                 }
-            }, onStop = { reason -> stopSession(reason) })
+            }, onStop = { reason -> stopSession(reason) },
+            reportHandler = if(winPe) ({ peer, body -> acceptReport(peer,body) }) else null)
         server = http
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketInstall:session")
             .apply { acquire(30 * 60 * 1000L) }
@@ -131,6 +142,7 @@ class PocketInstallService : Service() {
         }
         http.start()
         if (directory != null) WinPeHttp.check(http, lan.address, directory)
+        if (windows != null) WinPeHttp.checkImage(http,lan.address,File(windows,"image.wim"))
         if (stopping.get()) return@synchronized
         if (pxe) {
             fun createTftp(port: Int) = LocalTftpServer(lan.address, subnet, resources,
@@ -174,6 +186,24 @@ class PocketInstallService : Service() {
                 else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
                 else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
     }
+
+    private fun acceptReport(peer: String, body: ByteArray): Boolean = runCatching {
+        val current = ServerStore.state.value
+        require(current.winPeMode && current.winPeProgress.peer == peer &&
+            current.winPeProgress.stage == app.pocketinstall.server.WinPeStage.STARTED)
+        val json = JSONObject(body.toString(Charsets.UTF_8))
+        val labels = mapOf("inventory" to "Matériel détecté", "partitioning" to "Partitionnement du disque confirmé sur le PC",
+            "downloading" to "Transfert de l'image Windows", "verifying" to "Vérification de l'image sur le PC",
+            "applying" to "Installation de Windows", "configuring" to "Configuration et débloat",
+            "prepared" to "Windows appliqué · premier démarrage à confirmer sur le PC", "error" to "Installation interrompue")
+        val stage = json.getString("stage"); require(stage in labels)
+        val hardware = json.optJSONObject("hardware")
+        val summary = hardware?.let { "${it.optString("model").take(100)} · ${it.optString("cpu").take(150)} · " +
+            "${it.optLong("ramBytes") / 1073741824} Go RAM · ${it.optInt("cores")} cœurs · TPM ${it.optString("tpm").take(30)}" }
+        ServerStore.mutable.update { it.copy(pcHardware=summary ?: it.pcHardware,
+            installMessage=labels.getValue(stage) + json.optString("message").take(500).let { detail -> if(detail.isEmpty()) "" else "\n$detail" }) }
+        true
+    }.getOrDefault(false)
 
     private fun monitor(lan: LanCandidate) {
         if (lan.network == null) {
@@ -231,3 +261,4 @@ class PocketInstallService : Service() {
         private const val CHANNEL = "pocketinstall-session"
     }
 }
+

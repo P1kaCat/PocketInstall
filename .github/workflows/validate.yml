@@ -9,8 +9,8 @@ jobs:
   winpe:
     uses: ./.github/workflows/build-winpe.yml
     with:
-      # PR #2 only: the ADK image and embedded loader are unchanged; rerun current HTTP/VM code.
-      prepared_run_id: ${{ github.event.pull_request.number == 2 && 37161864011 || 0 }}
+      # The ADK image and embedded loader are unchanged; installer scripts are injected by current HTTP code.
+      prepared_run_id: 37161864011
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -33,6 +33,9 @@ jobs:
           $tokens = $null; $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile("$PWD/scripts/Package-WinPE.ps1", [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count) { $errors; exit 1 }
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/winpe/Install-Windows.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors; exit 1 }
       - name: Keep development APK and test reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -43,3 +46,4 @@ jobs:
             android/app/build/reports/lint-results-debug.html
           if-no-files-found: error
           retention-days: 14
+

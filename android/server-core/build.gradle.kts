@@ -5,3 +5,6 @@ plugins {
 kotlin { jvmToolchain(17) }
 application { mainClass.set("app.pocketinstall.server.DevMainKt") }
 dependencies { testImplementation("junit:junit:4.13.2") }
+
+
+sourceSets.main { resources.srcDir("../../winpe"); resources.include("Install-Windows.ps1") }

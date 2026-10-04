@@ -20,6 +20,8 @@ data class ServerSnapshot(
     val winPeMode: Boolean = false,
     val winPeProgress: WinPeProgress = WinPeProgress(),
     val importingWinPe: Boolean = false,
+    val pcHardware: String = "",
+    val installMessage: String = "",
     val loaderUrl: String = "",
     val usbMode: Boolean = false,
     val pxeMode: Boolean = false,
@@ -32,3 +34,4 @@ object ServerStore {
     internal val mutable = MutableStateFlow(ServerSnapshot())
     val state = mutable.asStateFlow()
 }
+
