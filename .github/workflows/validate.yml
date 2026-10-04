@@ -8,6 +8,9 @@ permissions:
 jobs:
   winpe:
     uses: ./.github/workflows/build-winpe.yml
+    with:
+      # Includes matching TPM/Secure Boot components; current installer is injected over HTTP.
+      prepared_run_id: 37170055420
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -44,7 +47,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   windows-install-test:
-    needs: [android, winpe]
+    needs: android
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -59,6 +62,8 @@ jobs:
         with:
           name: winpe-ready
           path: winpe-out
+          run-id: 37170055420
+          github-token: ${{ github.token }}
       - name: Prepare isolated Windows installation test
         run: |
           sudo apt-get update -qq

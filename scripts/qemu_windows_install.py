@@ -86,6 +86,10 @@ def main():
             tpm=subprocess.Popen(['swtpm','socket','--tpm2','--tpmstate',f'dir={out/"tpm"}','--ctrl',f'type=unixio,path={out/"tpm.sock"}','--flags','not-need-init'],stdout=tlog,stderr=subprocess.STDOUT)
             server=subprocess.Popen(['java','-cp','android/server-core/build/install/server-core/lib/*','app.pocketinstall.server.WinPeVmMainKt',str(bundle),str(out),str(a.image.resolve())],stdout=slog,stderr=subprocess.STDOUT)
             wait_file('server-ready'); vm=launch('pxe',qlog)
+            wait_file('report-inventory')
+            hardware=json.loads((out/'report-inventory').read_text())['hardware']
+            if hardware['ramBytes'] < 4 * 1024**3 or hardware.get('ramSource') != 'SMBIOS' or '2.0' not in hardware['tpm']:
+                raise RuntimeError('The emulated 4 GiB/TPM 2.0 hardware was not detected: '+json.dumps(hardware))
             wait_file('report-awaiting-disk'); screenshot(out,'disk-choice'); time.sleep(1); type_vm_only(out,'0\n')
             wait_file('report-awaiting-confirmation'); screenshot(out,'erase-review'); time.sleep(1); type_vm_only(out,'EFFACER 0\n')
             wait_file('report-prepared'); screenshot(out,'windows-applied'); stop(vm); vm=None

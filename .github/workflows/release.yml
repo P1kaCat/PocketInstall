@@ -88,10 +88,11 @@ jobs:
         run: |
           python3 scripts/verify_winpe_bundle.py tested-bundle/PocketInstall-WinPE-x64.zip
           python3 - <<'PY'
-          import json
+          import json, pathlib
           result = json.load(open("tested-evidence/result.json"))
           assert result["success"] and result["winpe_runtime_callback"] and result["guest_disks"] == 0
-          windows = json.load(open("tested-windows/result.json"))
+          windows_root = pathlib.Path("tested-windows")
+          windows = json.loads((windows_root / "windows-vm/result.json").read_text())
           assert windows["success"] and windows["windows_runtime_callback"] and windows["disposable_disk"] and windows["guest_disks"] == 1
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -234,9 +235,9 @@ jobs:
           manifest = json.loads((root / "release.json").read_text())
           vm = json.loads(pathlib.Path("winpe-evidence/result.json").read_text())
           assert vm["success"] and vm["winpe_runtime_callback"] and vm["guest_disks"] == 0
-          windows = json.loads(pathlib.Path("windows-evidence/result.json").read_text())
+          windows = json.loads(pathlib.Path("windows-evidence/windows-vm/result.json").read_text())
           assert windows["success"] and windows["windows_runtime_callback"] and windows["disposable_disk"] and windows["guest_disks"] == 1
-          for file in pathlib.Path("windows-evidence").iterdir():
+          for file in pathlib.Path("windows-evidence").rglob("*"):
               if file.is_file() and file.stat().st_size: shutil.copyfile(file, root / ("WINDOWS-VM-" + file.name))
           manifest["windowsInstall"] = {"vmFirstBootValidated": True, "testedEdition": "Windows 11 Pro x64", "oobeCompleted": False, "physicalInstallValidated": False, "requiresUserMicrosoftMedia": True, "requiresLocalDiskEraseConfirmation": True}
           manifest["winpe"] = {"bundle": "PocketInstall-WinPE-x64.zip", "installsWindows": False, "physicalBootTested": False, "adkBuildValidated": True, "vmBootValidated": True, "automaticPxeValidated": True}

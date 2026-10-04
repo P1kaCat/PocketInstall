@@ -55,7 +55,7 @@ class PocketInstallService : Service() {
             stopSession("Serveur arrêté.")
             return START_NOT_STICKY
         }
-        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.importingWinPe) return START_NOT_STICKY
+        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.status == ServerStatus.STARTING || ServerStore.state.value.importingWinPe) return START_NOT_STICKY
         try {
             val notifications = getSystemService(NotificationManager::class.java)
             notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Session PocketInstall", NotificationManager.IMPORTANCE_LOW))
@@ -94,8 +94,8 @@ class PocketInstallService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean, winPe: Boolean) = synchronized(lock) {
-        if (stopping.get() || server != null) return@synchronized
+    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean, winPe: Boolean) {
+        if (stopping.get() || server != null) return
         val lan = LanNetwork.candidates(this, usb).firstOrNull { it.id == candidateId }
             ?: error("Interface privée absente ou modifiée")
         selected = lan
@@ -109,82 +109,86 @@ class PocketInstallService : Service() {
         val imageInfo = windows?.let { WindowsStorage.info(it, verifyHash = true) }
         val installPlan = imageInfo?.let { WindowsStorage.plan(WindowsStorage.selection(this), it) }
             ?: "{\"enabled\":false}".toByteArray()
-        val http = LocalHttpServer(lan.address, subnet, if (winPe) emptyMap() else resources,
-            resourceFactory = if (directory != null) ({ base ->
-                WinPeHttp.resources(directory, base, installPlan) + if(windows != null && imageInfo != null)
-                    mapOf("install/image.wim" to BootResource(imageInfo.bytes,"application/octet-stream") { File(windows,"image.wim").inputStream() }) else emptyMap()
-            }) else null,
-            publicAliases = if (winPe) WinPeHttp.aliases else emptyMap(),
-            monotonicMillis = { SystemClock.elapsedRealtime() },
-            onEvent = { event ->
-                if (stopping.get() || event.peer == lan.address.hostAddress) return@LocalHttpServer
-                val now = System.currentTimeMillis()
-                if (event.phase == RequestPhase.STARTED && event.status in listOf(200, 206)) {
-                    if (peers.size < 128 || peers.containsKey(event.peer)) peers[event.peer] = now
-                }
-                peers.entries.removeIf { now - it.value > 5 * 60 * 1000 }
-                ServerStore.mutable.update { old ->
-                    val entries = old.events.filterNot { it.id == event.id } + event
-                    old.copy(requests = old.requests + if (event.phase == RequestPhase.STARTED) 1 else 0,
-                        clientsSeen = peers.size, events = entries.takeLast(50),
-                        winPeProgress = if (winPe) old.winPeProgress.accept(event) else old.winPeProgress)
-                }
-            }, onStop = { reason -> stopSession(reason) },
-            reportHandler = if(winPe) ({ peer, body -> acceptReport(peer,body) }) else null)
-        server = http
-        wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketInstall:session")
-            .apply { acquire(30 * 60 * 1000L) }
-        @Suppress("DEPRECATION")
-        if (lan.network != null && getSystemService(ConnectivityManager::class.java).getNetworkCapabilities(lan.network)
-                ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            wifiLock = applicationContext.getSystemService(WifiManager::class.java)
-                .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketInstall:LAN").apply { acquire() }
-        }
-        http.start()
-        if (directory != null) WinPeHttp.check(http, lan.address, directory)
-        if (windows != null) WinPeHttp.checkImage(http,lan.address,File(windows,"image.wim"))
-        if (stopping.get()) return@synchronized
-        if (pxe) {
-            fun createTftp(port: Int) = LocalTftpServer(lan.address, subnet, resources,
-                requestedPort = port, session = http.session,
+        // Large immutable images are verified outside the lifecycle lock so stopping the service stays responsive.
+        synchronized(lock) {
+            if (stopping.get() || server != null) return@synchronized
+            val http = LocalHttpServer(lan.address, subnet, if (winPe) emptyMap() else resources,
+                resourceFactory = if (directory != null) ({ base ->
+                    WinPeHttp.resources(directory, base, installPlan) + if(windows != null && imageInfo != null)
+                        mapOf("install/image.wim" to BootResource(imageInfo.bytes,"application/octet-stream") { File(windows,"image.wim").inputStream() }) else emptyMap()
+                }) else null,
+                publicAliases = if (winPe) WinPeHttp.aliases else emptyMap(),
                 monotonicMillis = { SystemClock.elapsedRealtime() },
                 onEvent = { event ->
-                    if (stopping.get()) return@LocalTftpServer
-                    if (event.phase == RequestPhase.STARTED && (peers.size < 128 || peers.containsKey(event.peer)))
-                        peers[event.peer] = System.currentTimeMillis()
-                    ServerStore.mutable.update { old -> old.copy(
-                        clientsSeen = peers.size,
-                        tftpEvents = (old.tftpEvents.filterNot { it.id == event.id } + event).takeLast(50)) }
-                }, onStop = { reason -> stopSession(reason) })
-            val standard = createTftp(69)
-            var fallbackReason = ""
-            tftp = try { standard.start(); standard }
-                catch (e: Exception) {
-                    standard.close()
-                    fallbackReason = e.javaClass.simpleName
-                    createTftp(6969).also { it.start() }
-                }
-            val activeTftp = checkNotNull(tftp)
-            ServerStore.mutable.update { it.copy(tftpPort = activeTftp.port, bootFilename = activeTftp.bootFilename,
-                tftpMessage = if (activeTftp.port == 69)
-                    "TFTP standard ouvert. Le DHCP doit encore annoncer ce téléphone et le fichier de boot."
-                else "Port UDP 69 indisponible ($fallbackReason). TFTP ouvert sur 6969 : relais ou redirection UDP 69 obligatoire. PXE direct ne peut pas utiliser ce port.") }
-        }
-        monitor(lan)
-        scope.launch {
-            while (!stopping.get()) {
-                delay(15000)
-                val now = System.currentTimeMillis()
-                peers.entries.removeIf { now - it.value > 5 * 60 * 1000 }
-                ServerStore.mutable.update { it.copy(clientsSeen = peers.size) }
+                    if (stopping.get() || event.peer == lan.address.hostAddress) return@LocalHttpServer
+                    val now = System.currentTimeMillis()
+                    if (event.phase == RequestPhase.STARTED && event.status in listOf(200, 206)) {
+                        if (peers.size < 128 || peers.containsKey(event.peer)) peers[event.peer] = now
+                    }
+                    peers.entries.removeIf { now - it.value > 5 * 60 * 1000 }
+                    ServerStore.mutable.update { old ->
+                        val entries = old.events.filterNot { it.id == event.id } + event
+                        old.copy(requests = old.requests + if (event.phase == RequestPhase.STARTED) 1 else 0,
+                            clientsSeen = peers.size, events = entries.takeLast(50),
+                            winPeProgress = if (winPe) old.winPeProgress.accept(event) else old.winPeProgress)
+                    }
+                }, onStop = { reason -> stopSession(reason) },
+                reportHandler = if(winPe) ({ peer, body -> acceptReport(peer,body) }) else null)
+            server = http
+            wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketInstall:session")
+                .apply { acquire(30 * 60 * 1000L) }
+            @Suppress("DEPRECATION")
+            if (lan.network != null && getSystemService(ConnectivityManager::class.java).getNetworkCapabilities(lan.network)
+                    ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+                wifiLock = applicationContext.getSystemService(WifiManager::class.java)
+                    .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketInstall:LAN").apply { acquire() }
             }
+            http.start()
+            if (directory != null) WinPeHttp.check(http, lan.address, directory)
+            if (windows != null) WinPeHttp.checkImage(http,lan.address,File(windows,"image.wim"))
+            if (stopping.get()) return@synchronized
+            if (pxe) {
+                fun createTftp(port: Int) = LocalTftpServer(lan.address, subnet, resources,
+                    requestedPort = port, session = http.session,
+                    monotonicMillis = { SystemClock.elapsedRealtime() },
+                    onEvent = { event ->
+                        if (stopping.get()) return@LocalTftpServer
+                        if (event.phase == RequestPhase.STARTED && (peers.size < 128 || peers.containsKey(event.peer)))
+                            peers[event.peer] = System.currentTimeMillis()
+                        ServerStore.mutable.update { old -> old.copy(
+                            clientsSeen = peers.size,
+                            tftpEvents = (old.tftpEvents.filterNot { it.id == event.id } + event).takeLast(50)) }
+                    }, onStop = { reason -> stopSession(reason) })
+                val standard = createTftp(69)
+                var fallbackReason = ""
+                tftp = try { standard.start(); standard }
+                    catch (e: Exception) {
+                        standard.close()
+                        fallbackReason = e.javaClass.simpleName
+                        createTftp(6969).also { it.start() }
+                    }
+                val activeTftp = checkNotNull(tftp)
+                ServerStore.mutable.update { it.copy(tftpPort = activeTftp.port, bootFilename = activeTftp.bootFilename,
+                    tftpMessage = if (activeTftp.port == 69)
+                        "TFTP standard ouvert. Le DHCP doit encore annoncer ce téléphone et le fichier de boot."
+                    else "Port UDP 69 indisponible ($fallbackReason). TFTP ouvert sur 6969 : relais ou redirection UDP 69 obligatoire. PXE direct ne peut pas utiliser ce port.") }
+            }
+            monitor(lan)
+            scope.launch {
+                while (!stopping.get()) {
+                    delay(15000)
+                    val now = System.currentTimeMillis()
+                    peers.entries.removeIf { now - it.value > 5 * 60 * 1000 }
+                    ServerStore.mutable.update { it.copy(clientsSeen = peers.size) }
+                }
+            }
+            ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
+                url = if (winPe) "${http.baseUrl}/winpe/boot.ipxe" else http.bootUrl,
+                loaderUrl = if (winPe) "${http.baseUrl}/winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
+                message = if (winPe) "Serveur démarré · routes WinPE vérifiées. Démarre le PC en PXE." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
+                    else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
+                    else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
         }
-        ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
-            url = if (winPe) "${http.baseUrl}/winpe/boot.ipxe" else http.bootUrl,
-            loaderUrl = if (winPe) "${http.baseUrl}/winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
-            message = if (winPe) "Serveur démarré · routes WinPE vérifiées. Démarre le PC en PXE." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
-                else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
-                else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
     }
 
     private fun acceptReport(peer: String, body: ByteArray): Boolean = runCatching {
