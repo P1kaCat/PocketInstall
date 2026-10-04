@@ -54,6 +54,7 @@ fun MicrosoftDownloadDialog(version: WindowsVersion, language: String, close: ()
     val windows = if(version == WindowsVersion.WINDOWS_11) "Windows 11" else "Windows 10"
     val script = remember(version,language) { """
         (function() {
+          if(document.readyState !== 'complete') return JSON.stringify({message:'Chargement de Microsoft…'});
           const s = window.__pocketInstallDownload || (window.__pocketInstallDownload = {});
           const lang = ${JSONObject.quote(language)};
           const windows = ${JSONObject.quote(windows)};

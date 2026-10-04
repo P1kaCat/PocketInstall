@@ -144,7 +144,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             confirmButton = { TextButton(onClick = { licenseOpen = false }) { Text("Fermer") } }
         )
     }
-    val download by WindowsDownloadStore.state.collectAsState()
+    val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
     val usbMode = if (active) state.usbMode else selectedUsb
     val pxeMode = if (active) state.pxeMode else selectedPxe

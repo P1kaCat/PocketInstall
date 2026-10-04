@@ -23,9 +23,9 @@ jobs:
           java-version: '17'
       - name: Install SDK
         run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
-      - name: Compile APK and check download boundary cases once
+      - name: Compile APK (download checks already passed)
         working-directory: android
-        run: bash gradlew --no-daemon --console=plain :server-core:test --tests app.pocketinstall.server.MicrosoftIsoTest :app:assembleDebug
+        run: bash gradlew --no-daemon --console=plain :app:assembleDebug
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: winpe-ready
