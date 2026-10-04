@@ -139,5 +139,6 @@ jobs:
             winpe-vm/serial.log
             winpe-vm/qemu.log
             winpe-vm/server.log
+            winpe-vm/network.pcap
           if-no-files-found: error
           retention-days: 14

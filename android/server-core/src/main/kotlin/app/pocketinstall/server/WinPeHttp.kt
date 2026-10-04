@@ -26,6 +26,7 @@ cls
 echo PocketInstall boot successful (WinPE)
 echo No installation or formatting has been requested.
 echo This command prompt remains available.
+ipconfig
 if exist X:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe (
   powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File X:\Windows\System32\pocketinstall.ps1
 ) else (
