@@ -204,7 +204,10 @@ jobs:
             --aapt "${ANDROID_HOME}/build-tools/36.0.0/aapt"
           python3 scripts/verify_winpe_bundle.py winpe-ready/PocketInstall-WinPE-x64.zip
           cp winpe-ready/* release-out/
-          for file in winpe-evidence/*; do cp "$file" "release-out/WINPE-VM-$(basename "$file")"; done
+          # GitHub release uploads reject zero-byte files; empty diagnostic logs add no evidence.
+          for file in winpe-evidence/*; do
+            if [ -s "$file" ]; then cp "$file" "release-out/WINPE-VM-$(basename "$file")"; fi
+          done
           python3 - <<'PY'
           import hashlib, json, pathlib
           root = pathlib.Path("release-out")
