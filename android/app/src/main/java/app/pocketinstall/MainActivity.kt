@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             PocketTheme {
                 val state by ServerStore.state.collectAsStateWithLifecycle()
@@ -193,7 +195,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                         } else Text("Serveur sur ${state.ip}",style=MaterialTheme.typography.bodyMedium)
                         if(active) OutlinedButton(onClick=onStop,modifier=Modifier.fillMaxWidth()){Text("Arrêter le serveur")}
                         else Button(onClick=onWinPe,enabled=ready && !busy && !selectedUsb && networks.any{it.id==chosen},modifier=Modifier.fillMaxWidth()){Text("Démarrer le serveur")}
-                        if(!active && !ready) Text("Importe le ZIP WinPE dans Préparer pour démarrer.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        if(!active && !ready) Text("Vérifie ou importe le ZIP WinPE dans Préparer pour démarrer.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }}
                     item {InstallationProgress(state)}
                 }

@@ -27,14 +27,22 @@ fun PocketTheme(content: @Composable () -> Unit) {
     val colors = if (isSystemInDarkTheme()) darkColorScheme(
         primary=Color(0xFF70D9E8), onPrimary=Color(0xFF00363E),
         primaryContainer=Color(0xFF17434D), onPrimaryContainer=Color(0xFFB6F1F8),
-        secondary=Color(0xFFA7C9D1), background=Color(0xFF0C151B),
+        secondary=Color(0xFFA7C9D1), secondaryContainer=Color(0xFF17434D), onSecondaryContainer=Color(0xFFB6F1F8),
+        surfaceDim=Color(0xFF0C151B), surfaceBright=Color(0xFF2D3D47),
+        surfaceContainerLowest=Color(0xFF081116), surfaceContainerLow=Color(0xFF101C23),
+        surfaceContainer=Color(0xFF18262E), surfaceContainerHigh=Color(0xFF20313A), surfaceContainerHighest=Color(0xFF293D47),
+        background=Color(0xFF0C151B),
         surface=Color(0xFF142129), surfaceVariant=Color(0xFF24343E),
         onBackground=Color(0xFFE6EDF2), onSurface=Color(0xFFE6EDF2),
         onSurfaceVariant=Color(0xFFB6C8D3), outline=Color(0xFF8195A1)
     ) else lightColorScheme(
         primary=Color(0xFF006677), onPrimary=Color.White,
         primaryContainer=Color(0xFFCEEFF3), onPrimaryContainer=Color(0xFF00363E),
-        secondary=Color(0xFF405F68), background=Color(0xFFF3F7F9),
+        secondary=Color(0xFF405F68), secondaryContainer=Color(0xFFCEEFF3), onSecondaryContainer=Color(0xFF00363E),
+        surfaceDim=Color(0xFFD9E3E9), surfaceBright=Color.White,
+        surfaceContainerLowest=Color.White, surfaceContainerLow=Color(0xFFF0F5F7),
+        surfaceContainer=Color(0xFFEAF1F4), surfaceContainerHigh=Color(0xFFE3ECEF), surfaceContainerHighest=Color(0xFFDCE7EC),
+        background=Color(0xFFF3F7F9),
         surface=Color.White, surfaceVariant=Color(0xFFE2ECF1),
         onBackground=Color(0xFF15232C), onSurface=Color(0xFF15232C),
         onSurfaceVariant=Color(0xFF415661), outline=Color(0xFF647B87)
