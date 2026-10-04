@@ -1,3 +1,7 @@
+Depuis la version 3.1.0, le bouton **Télécharger et préparer Windows** récupère une ISO x64 officielle Microsoft puis prépare l’image dans l’application. Choisir Windows, l’édition et la langue avant de lancer. Prévoir 15 à 20 Go libres. Le téléchargement continue en arrière-plan avec notification et peut être annulé. Une coupure demande de relancer le téléchargement. Si Microsoft réclame une intervention, sa page apparaît dans l’application ; l’import manuel reste disponible.
+
+Aucun changement de configuration Freebox ou de ZIP WinPE pour passer de 0.3.0-install-preview à 3.1.0.
+
 # Installer Windows depuis PocketInstall
 
 Le parcours Freebox → iPXE → WinPE reste automatique. La Freebox se configure manuellement une seule fois ; aucun changement supplémentaire n'est nécessaire pour passer du test WinPE à l'installation.

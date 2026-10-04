@@ -68,6 +68,30 @@ object WindowsStorage {
             return result
         } catch(e: Exception) { directory.deleteRecursively(); throw e }
     }
+    fun prepareDownloadedIso(context: Context, source: File, selection: WindowsSelection, cancelled: () -> Boolean): WindowsImageInfo {
+        val previous = current(context)
+        require(source.length() in 1048576..WindowsImage.MAX_BYTES) { "ISO incomplète." }
+        require(source.parentFile!!.usableSpace > source.length() + 67108864) { "Espace insuffisant pour préparer Windows." }
+        val id = UUID.randomUUID().toString()
+        val directory = File(context.filesDir,"windows/$id"); check(directory.mkdirs())
+        try {
+            val staged = File(directory,"source.iso")
+            check(source.renameTo(staged)) { "Impossible de préparer l’ISO téléchargée." }
+            check(!cancelled()) { "Préparation annulée." }
+            val file = File(directory,"image.wim")
+            WindowsIso.extract(staged,file)
+            check(!cancelled()) { "Préparation annulée." }
+            val result = WindowsImageInfo(file.length(),WindowsImage.hash(file),WindowsImage.inspect(file))
+            result.selected(selection) // Validate requested version/edition before replacing the current image.
+            check(!cancelled()) { "Préparation annulée." }
+            File(directory,"image.json").writeText(JSONObject().put("bytes",result.bytes).put("sha256",result.sha256)
+                .put("source","Microsoft HTTPS").put("sourceHashChecked",false).toString())
+            check(staged.delete())
+            check(prefs(context).edit().putString("image",id).putBoolean("enabled",false).commit())
+            previous?.deleteRecursively()
+            return result
+        } catch(e: Exception) { directory.deleteRecursively(); throw e }
+    }
     fun plan(selection: WindowsSelection, info: WindowsImageInfo): ByteArray {
         val image = info.selected(selection)
         return JSONObject().put("schema",1).put("enabled",true).put("version",selection.version.name)

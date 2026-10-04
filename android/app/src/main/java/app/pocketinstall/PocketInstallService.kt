@@ -55,7 +55,7 @@ class PocketInstallService : Service() {
             stopSession("Serveur arrêté.")
             return START_NOT_STICKY
         }
-        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.status == ServerStatus.STARTING || ServerStore.state.value.importingWinPe) return START_NOT_STICKY
+        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.status == ServerStatus.STARTING || ServerStore.state.value.importingWinPe || WindowsDownloadStore.state.value.active) return START_NOT_STICKY
         try {
             val notifications = getSystemService(NotificationManager::class.java)
             notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Session PocketInstall", NotificationManager.IMPORTANCE_LOW))

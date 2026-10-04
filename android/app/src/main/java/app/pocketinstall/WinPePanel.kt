@@ -30,7 +30,8 @@ fun WinPePanel(state: ServerSnapshot, canStart: Boolean, onStart: () -> Unit, on
     var importing by remember { mutableStateOf(false) }
     var advanced by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Vérification de l'environnement…") }
-    val busy = importing || state.importingWinPe
+    val download by WindowsDownloadStore.state.collectAsState()
+    val busy = importing || state.importingWinPe || download.active
     val active = state.status == ServerStatus.RUNNING || state.status == ServerStatus.STARTING
     LaunchedEffect(Unit) {
         importing = true; onBusy(true)
