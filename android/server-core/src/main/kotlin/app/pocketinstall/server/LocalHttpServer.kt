@@ -29,7 +29,8 @@ data class HttpEvent(
 )
 
 /** A deliberately small, read-only HTTP/1.x subset for firmware file delivery.
- * No path resolution, redirects, compression, uploads, shell or remote control.
+ * No path resolution, redirects, compression, file uploads, shell or remote control.
+ * Optional bounded JSON status reports are accepted only at install/report.
  */
 class LocalHttpServer(
     private val bind: Inet4Address,
@@ -44,6 +45,7 @@ class LocalHttpServer(
     private val monotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val onEvent: (HttpEvent) -> Unit = {},
     private val onStop: (String) -> Unit = {},
+    private val reportHandler: ((String, ByteArray) -> Boolean)? = null,
 ) : Closeable {
     init {
         require(requestedPort in 0..65535 && lifetimeMillis in 1..30 * 60 * 1000L)
@@ -148,7 +150,7 @@ class LocalHttpServer(
         }
         val first = line(2048).split(' ')
         if (first.size != 3 || first[2] !in listOf("HTTP/1.0", "HTTP/1.1")) throw Rejected(400)
-        if (first[0] !in listOf("GET", "HEAD")) throw Rejected(405)
+        if (first[0] !in listOf("GET", "HEAD") && !(first[0] == "POST" && reportHandler != null)) throw Rejected(405)
         val headers = linkedMapOf<String, String>()
         while (true) {
             val header = line(8192)
@@ -160,8 +162,10 @@ class LocalHttpServer(
             headers[key] = header.substring(colon + 1).trim()
         }
         if (first[2] == "HTTP/1.1" && headers["host"].isNullOrBlank()) throw Rejected(400)
-        if ("transfer-encoding" in headers || headers["content-length"]?.let { it.toLongOrNull() != 0L } == true)
-            throw Rejected(400)
+        if ("transfer-encoding" in headers) throw Rejected(400)
+        if (first[0] == "POST") {
+            if (headers["content-type"] != "application/json" || headers["content-length"]?.toLongOrNull() !in 1L..32768L) throw Rejected(400)
+        } else if (headers["content-length"]?.let { it.toLongOrNull() != 0L } == true) throw Rejected(400)
         return Request(first[0], first[1], headers)
     }
 
@@ -216,7 +220,8 @@ class LocalHttpServer(
             if (!subnet.contains(socket.inetAddress) ||
                 !(Ipv4Subnet.isPrivate(socket.inetAddress) || allowLoopbackForTests && socket.inetAddress.isLoopbackAddress))
                 throw Rejected(403)
-            val request = readRequest(BufferedInputStream(socket.getInputStream()))
+            val input = BufferedInputStream(socket.getInputStream())
+            val request = readRequest(input)
             method = request.method
             val prefix = "/$session/"
             if (!request.path.startsWith('/') || request.path.any { it in "%?#\\" } || ".." in request.path)
@@ -224,6 +229,20 @@ class LocalHttpServer(
             val key = publicAliases[request.path] ?: if (request.path.startsWith(prefix)) request.path.removePrefix(prefix)
                 else { name = "session incorrecte ou expirée"; throw Rejected(404) }
             name = key
+            if (method == "POST") {
+                if (key != "install/report" || !request.path.startsWith(prefix)) throw Rejected(404)
+                val body = ByteArray(checkNotNull(request.headers["content-length"]).toInt())
+                val bodyDeadline = monotonicMillis() + readTimeoutMillis
+                var read = 0
+                while (read < body.size) {
+                    if (monotonicMillis() >= bodyDeadline) throw Rejected(408)
+                    val count = input.read(body, read, body.size - read)
+                    if (count <= 0) throw Rejected(400)
+                    read += count
+                }
+                if (reportHandler?.invoke(peer, body) != true) throw Rejected(400)
+                header(200); return
+            }
             val resource = activeResources[key] ?: throw Rejected(404)
             val range = try { range(request.headers["range"], resource.length) }
                 catch (e: Rejected) {

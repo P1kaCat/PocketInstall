@@ -106,8 +106,9 @@ fun WinPePanel(state: ServerSnapshot, canStart: Boolean, onStart: () -> Unit, on
                     Text("Debug : dhcp\nchain ${state.url}")
                     Button(onClick = { copy("dhcp\nchain ${state.url}") }) { Text("Copier les commandes de diagnostic") }
                 }
-                Text("Le transfert seul ne prouve pas le boot. Le succès doit apparaître dans WinPE sur le PC. Aucun formatage ni installation automatique.")
+                Text("Le transfert seul ne prouve pas le boot. Le succès doit apparaître dans WinPE sur le PC. Si l’installation Windows est activée, le disque et son effacement seront confirmés sur le PC.")
             }
         }
     }
 }
+

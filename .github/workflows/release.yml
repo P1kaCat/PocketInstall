@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   tested_bundle:
+    # Explicitly requested 0.3.0 preview publishes existing artifacts through its dedicated workflow.
+    if: ${{ !contains(github.event.head_commit.message, '[publish-install-preview]') }}
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}
@@ -44,9 +46,11 @@ jobs:
                   continue
               artifacts = api("actions/runs/" + str(run["id"]) + "/artifacts")["artifacts"]
               names = {a["name"] for a in artifacts if not a["expired"]}
-              if {"winpe-ready", "winpe-vm-evidence"} <= names:
+              if {"winpe-ready", "winpe-vm-evidence", "windows-install-vm-evidence"} <= names:
                   selected = run["id"]
                   break
+          if not selected:
+              raise SystemExit("No identical payload with successful WinPE and installed Windows validation. Publication blocked.")
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write("run_id=" + str(selected) + "\n")
           print("Validated bundle run:", selected, "(0 means a fresh build is required)")
@@ -75,14 +79,23 @@ jobs:
           path: tested-evidence
           run-id: ${{ needs.tested_bundle.outputs.run_id }}
           github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: windows-install-vm-evidence
+          path: tested-windows
+          run-id: ${{ needs.tested_bundle.outputs.run_id }}
+          github-token: ${{ github.token }}
       - name: Verify bundle and actual WinPE boot result
         shell: bash
         run: |
           python3 scripts/verify_winpe_bundle.py tested-bundle/PocketInstall-WinPE-x64.zip
           python3 - <<'PY'
-          import json
+          import json, pathlib
           result = json.load(open("tested-evidence/result.json"))
           assert result["success"] and result["winpe_runtime_callback"] and result["guest_disks"] == 0
+          windows_root = pathlib.Path("tested-windows")
+          windows = json.loads((windows_root / "windows-vm/result.json").read_text())
+          assert windows["success"] and windows["windows_runtime_callback"] and windows["disposable_disk"] and windows["guest_disks"] == 1
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -94,6 +107,11 @@ jobs:
         with:
           name: winpe-vm-evidence
           path: tested-evidence/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-install-vm-evidence
+          path: tested-windows/*
           if-no-files-found: error
   publish:
     needs: [winpe, reuse]
@@ -190,6 +208,11 @@ jobs:
         with:
           name: winpe-vm-evidence
           path: winpe-evidence
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: steps.existing.outputs.skip != 'true'
+        with:
+          name: windows-install-vm-evidence
+          path: windows-evidence
       - name: Verify signature and prepare assets
         if: steps.existing.outputs.skip != 'true'
         env:
@@ -209,11 +232,16 @@ jobs:
             if [ -s "$file" ]; then cp "$file" "release-out/WINPE-VM-$(basename "$file")"; fi
           done
           python3 - <<'PY'
-          import hashlib, json, pathlib
+          import hashlib, json, pathlib, shutil
           root = pathlib.Path("release-out")
           manifest = json.loads((root / "release.json").read_text())
           vm = json.loads(pathlib.Path("winpe-evidence/result.json").read_text())
           assert vm["success"] and vm["winpe_runtime_callback"] and vm["guest_disks"] == 0
+          windows = json.loads(pathlib.Path("windows-evidence/windows-vm/result.json").read_text())
+          assert windows["success"] and windows["windows_runtime_callback"] and windows["disposable_disk"] and windows["guest_disks"] == 1
+          for file in pathlib.Path("windows-evidence").rglob("*"):
+              if file.is_file() and file.stat().st_size: shutil.copyfile(file, root / ("WINDOWS-VM-" + file.name))
+          manifest["windowsInstall"] = {"vmFirstBootValidated": True, "testedEdition": "Windows 11 Pro x64", "oobeCompleted": False, "physicalInstallValidated": False, "requiresUserMicrosoftMedia": True, "requiresLocalDiskEraseConfirmation": True}
           manifest["winpe"] = {"bundle": "PocketInstall-WinPE-x64.zip", "installsWindows": False, "physicalBootTested": False, "adkBuildValidated": True, "vmBootValidated": True, "automaticPxeValidated": True}
           manifest["artifacts"] = [{"name": p.name, "bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.iterdir()) if p.name not in ("SHA256SUMS", "release.json")]
           (root / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -230,5 +258,6 @@ jobs:
         run: |
           gh release create "$TAG" release-out/* \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "PocketInstall $VERSION — WinPE preview" \
+            --title "PocketInstall $VERSION — Windows install preview" \
             --prerelease --latest=false --notes-file "releases/$VERSION/NOTES.md"
+

@@ -233,6 +233,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     OutlinedButton(onClick = onRefresh) { Text("Actualiser les réseaux") }
                 }
             }
+            WindowsPanel(state) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } }
             run { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
             run {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
@@ -273,7 +274,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 if (usbMode) Text("USB dans Windows ≠ USB réseau dans l’UEFI. Si le firmware ne reconnaît pas le partage USB, ce PC n’est probablement pas compatible avec PocketInstall par câble USB.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
-                Text("Test EFI et chargement WinPE · aucune installation Windows automatique.", Modifier.padding(top = 10.dp))
+                Text("Choisis Windows et son édition, puis confirme le disque sur le PC. Les tests EFI restent disponibles dans le diagnostic.", Modifier.padding(top = 10.dp))
                 Text("Usage personnel et modifications privées autorisés. Redistribution soumise à accord écrit.",
                     Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { licenseOpen = true }) { Text("Lire la licence") }
@@ -281,3 +282,4 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
         }
     }
 }
+
