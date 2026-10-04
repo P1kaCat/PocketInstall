@@ -39,8 +39,8 @@ def main():
            '-drive', f'if=pflash,format=raw,readonly=on,file={a.code.resolve()}',
            '-drive', f'if=pflash,format=raw,file={out / "vars.fd"}',
            '-netdev', f'user,id=lan,tftp={tftp},bootfile=snponly.efi',
-           '-object', f'filter-dump,id=trace,netdev=lan,file={out / "network.pcap"}',
-           '-device', 'e1000,netdev=lan,bootindex=1', '-boot', 'order=n,strict=on',
+           '-object', f'filter-dump,id=trace,netdev=lan,maxlen=256,file={out / "network.pcap"}',
+           '-device', 'e1000e,netdev=lan,bootindex=1', '-boot', 'order=n,strict=on',
            '-display', 'none', '-vga', 'std', '-serial', f'file:{out / "serial.log"}',
            '-qmp', f'unix:{out / "qmp.sock"},server=on,wait=off', '-no-reboot']
     server = qemu = None
