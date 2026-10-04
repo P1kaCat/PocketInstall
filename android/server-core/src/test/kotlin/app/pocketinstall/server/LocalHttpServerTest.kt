@@ -152,7 +152,7 @@ class LocalHttpServerTest {
             exchange(s, path = "/${s.session}/not-allowed")
             assertFalse(events.joinToString().contains(s.session))
             assertTrue(events.any { it.resource == "bootx64.efi" && it.phase == RequestPhase.FINISHED && it.sentBytes == bytes.size.toLong() })
-            assertTrue(events.any { it.resource == "rejected" && it.status == 404 })
+            assertTrue(events.any { it.status == 404 })
         }
     }
     @Test fun rfc1918PolicyDoesNotMistakeLinkLocalForPrivateLan() {

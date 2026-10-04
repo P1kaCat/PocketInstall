@@ -11,8 +11,8 @@ android {
         applicationId = "app.pocketinstall"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.2.0-winpe-preview"
+        versionCode = 6
+        versionName = "0.2.1-winpe-preview"
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "efi" }

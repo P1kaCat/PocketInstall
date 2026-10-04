@@ -127,6 +127,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
     onChoose: (String) -> Unit, onRefresh: () -> Unit, onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit,
     onCopyRelay: () -> Unit, onSettings: () -> Unit, onWinPe: () -> Unit) {
     var licenseOpen by remember { mutableStateOf(false) }
+    var debugOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val licenseText = remember(context) {
         context.assets.open("licenses/PocketInstall-Personal.txt").bufferedReader().use { it.readText() }
@@ -147,17 +148,17 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
     val usbMode = if (active) state.usbMode else selectedUsb
     val pxeMode = if (active) state.pxeMode else selectedPxe
     Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
-        LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item {
+        Column(Modifier.padding(padding).padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            run {
                 Text("PocketInstall", style = MaterialTheme.typography.headlineLarge)
                 Text("Ton téléphone, le point de départ du recovery.", color = MaterialTheme.colorScheme.primary)
             }
-            item {
+            run {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Server: ${state.status}", style = MaterialTheme.typography.titleMedium)
+                        Text("Serveur : ${when (state.status) { ServerStatus.STOPPED -> "arrêté"; ServerStatus.STARTING -> "vérification"; ServerStatus.RUNNING -> "démarré"; ServerStatus.ERROR -> "erreur" }}", style = MaterialTheme.typography.titleMedium)
                         Text(state.message)
-                        if (state.status == ServerStatus.RUNNING) {
+                        if (state.status == ServerStatus.RUNNING && (!state.winPeMode || debugOpen)) {
                             Text("IP : ${state.ip}", fontFamily = FontFamily.Monospace)
                             Text(if (state.winPeMode) "Script de chargement WinPE" else if (pxeMode) "URL du fichier pour le relais HTTP" else "Boot URL", style = MaterialTheme.typography.labelLarge)
                             Text(state.url, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
@@ -168,7 +169,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                 }
             }
             if (state.status == ServerStatus.RUNNING && pxeMode) {
-                item {
+                run {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("PXE · configuration réseau requise", style = MaterialTheme.typography.titleMedium)
@@ -187,7 +188,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                 }
             }
             if (!active) {
-                item {
+                run {
                     Text("Connexion", style = MaterialTheme.typography.titleMedium)
                     Row {
                         RadioButton(selected = !usbMode, onClick = { onMode(false) })
@@ -197,6 +198,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                         RadioButton(selected = usbMode, onClick = { onMode(true) })
                         Text("Câble USB · expérimental", Modifier.padding(top = 12.dp))
                     }
+                    if (debugOpen) {
                     if (usbMode) {
                         Text("Branche un câble USB de données puis active le partage de connexion USB dans les paramètres Android. Reviens ici et actualise.")
                         Text("Le PC doit reconnaître ce réseau USB dans son UEFI et proposer HTTP Boot dessus. MTP et la recharge ne suffisent pas. Ce mode ne transforme pas le téléphone en clé USB bootable.",
@@ -217,6 +219,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                             style = MaterialTheme.typography.bodySmall)
                     }
                     Text(if (usbMode) "Interface USB privée" else "Réseau local", style = MaterialTheme.typography.titleMedium)
+                    }
                     if (networks.isEmpty()) Text(if (usbMode)
                         "Aucune interface USB compatible visible. Active le partage USB puis actualise ; certains téléphones ne l'exposent pas à l'application."
                         else "Aucune IPv4 LAN privée. Rejoins le même réseau local que le PC, puis actualise.")
@@ -230,18 +233,20 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     OutlinedButton(onClick = onRefresh) { Text("Actualiser les réseaux") }
                 }
             }
-            item { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
-            item {
+            run { WinPePanel(state, !selectedUsb && networks.any { it.id == chosen }, onWinPe) { busy -> ServerStore.mutable.update { it.copy(importingWinPe = busy) } } }
+            run {
                 if (active) Button(onClick = onStop, modifier = Modifier.fillMaxWidth()) { Text("Arrêter le serveur") }
-                else Button(onClick = onStart, enabled = !state.importingWinPe && networks.any { it.id == chosen },
+                else if (debugOpen) Button(onClick = onStart, enabled = !state.importingWinPe && networks.any { it.id == chosen },
                     modifier = Modifier.fillMaxWidth()) { Text("Démarrer le test EFI") }
             }
-            item {
+            run { OutlinedButton(onClick = { debugOpen = !debugOpen }) { Text(if (debugOpen) "Masquer le diagnostic" else "Diagnostic avancé") } }
+            if (debugOpen) {
+            run {
                 Text("IP clientes vues (5 min) : ${state.clientsSeen}\nRequêtes HTTP : ${state.requests}")
                 Text("Un téléchargement ne prouve pas le boot. Le message de succès doit apparaître sur le PC.",
                     style = MaterialTheme.typography.bodySmall)
             }
-            items(state.tftpEvents.reversed(), key = { "TFTP:${it.id}" }) { event ->
+            state.tftpEvents.reversed().forEach { event ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         Text("TFTP ${event.resource} · ${event.result}", fontFamily = FontFamily.Monospace)
@@ -250,7 +255,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     }
                 }
             }
-            items(state.events.reversed(), key = { "HTTP:${it.id}" }) { event ->
+            state.events.reversed().forEach { event ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         Text("${event.method} ${event.resource} · ${event.status}", fontFamily = FontFamily.Monospace)
@@ -259,7 +264,8 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                     }
                 }
             }
-            item {
+            }
+            run {
                 Text(if (state.winPeMode) "Validation WinPE" else "Premier test", style = MaterialTheme.typography.titleMedium)
                 Text(if (state.winPeMode) "Suivre la carte Windows PE ci-dessus. Le succès doit apparaître dans la console WinPE du PC. Les transferts HTTP seuls ne prouvent pas le démarrage." else if (pxeMode) "1. Téléphone sur le LAN et PC en Ethernet.\n2. Choisir UEFI PXE IPv4, pas Legacy PXE.\n3. Configurer DHCP/TFTP ou préparer le relais Linux.\n4. Adapter Secure Boot au test EFI non signé.\n5. Lire le succès sur le PC, puis arrêt automatique."
                     else if (usbMode) "1. Câble USB de données.\n2. Partage USB activé dans Android.\n3. Réseau USB reconnu par l’UEFI et HTTP Boot disponible.\n4. Saisir l’URL exacte ; POC non signé.\n5. Lire le succès sur le PC, puis arrêt automatique." else "1. Même LAN pour le PC et le téléphone.\n2. UEFI HTTP Boot, URL manuelle.\n3. POC non signé : politique Secure Boot adaptée.\n4. Saisir l'URL exacte.\n5. Lire le succès sur le PC, puis arrêt automatique.")
