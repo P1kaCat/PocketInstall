@@ -1,68 +1,22 @@
 # Licences et provenance
 
-## Code original de PocketInstall
+Depuis la version 3.3.0, les éléments originaux expressément placés sous [LICENSE](../LICENSE) utilisent **PocketInstall Contribution License 2.0**, `LicenseRef-PocketInstall-Contribution-2.0` : utilisation personnelle de l’application officielle, aucune republication ou version dérivée distribuée sans accord écrit. Les modifications sont permises uniquement pour préparer, tester en privé et soumettre une contribution au dépôt officiel. Voir [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-À partir de **0.1.1-poc**, les éléments originaux explicitement distribués sous
-cette licence sont soumis à la [PocketInstall Personal Use License 1.0](../LICENSE),
-identifiée par `LicenseRef-PocketInstall-Personal-1.0`.
+Le même texte est embarqué dans `assets/licenses/PocketInstall-Personal.txt`, consultable hors ligne depuis Aide. Le nom historique de cet asset est conservé pour compatibilité.
 
-Elle autorise l'installation, les sauvegardes privées et toutes les modifications
-pour un usage personnel non commercial. Elle interdit la redistribution de
-l'application, de ses sources et de versions modifiées sans accord écrit, même
-gratuitement, sous un autre nom ou dans une boutique d'applications. Le code est
-consultable ; ce projet n'est pas sous une licence open source.
+## Droits antérieurs et plateformes
 
-L'APK embarque le texte dans `assets/licenses/PocketInstall-Personal.txt`.
-Le bouton **Lire la licence** permet de consulter ce texte hors ligne.
-
-## Versions historiques et limites du changement
-
-Le POC 0.1.0 a été publié sous MIT. Son texte est conservé dans
-[releases/0.1.0-poc/LICENSE-MIT.txt](../releases/0.1.0-poc/LICENSE-MIT.txt) et
-dans l'historique Git. Le changement ne retire pas rétroactivement les
-autorisations déjà accordées sur ces copies ou contributions. Il ne suffit
-donc pas à interdire la réutilisation du code historique resté disponible sous
-MIT. Le texte MIT autorise notamment la modification et la redistribution :
-https://choosealicense.com/licenses/mit/
-
-Les droits impératifs prévus par la loi et les autorisations minimales des
-conditions de GitHub restent applicables. Un dépôt public sur GitHub permet
-notamment la consultation et certains forks selon les conditions du service ;
-une licence ne permet pas de promettre leur interdiction absolue.
-https://choosealicense.com/no-permission/
-
-Le dépôt reste privé : cette opération ne change pas sa visibilité.
+La nouvelle licence ne révoque pas les autorisations accordées sur les copies antérieures. Le POC 0.1.0 et ses contributions sous MIT gardent leurs droits, avec [le texte historique](../releases/0.1.0-poc/LICENSE-MIT.txt). Les versions sous licence personnelle 1.0 gardent les permissions accordées par cette version de la licence. Les droits légaux impératifs et les autorisations minimales liées aux conditions de GitHub restent applicables. La visibilité du dépôt reste inchangée.
 
 ## Composants tiers
 
-La licence personnelle ne s'applique pas aux composants tiers pris séparément
-et ne réduit pas les droits que leurs propres licences accordent.
+La licence PocketInstall ne remplace ni ne restreint les licences tierces. GNU-EFI conserve ses notices BSD. AndroidX/Compose, Kotlin, kotlinx.coroutines et Gradle conservent leurs licences et notices, notamment Apache 2.0. Les ressources Skia conservent leurs notices BSD. JUnit est réservé aux tests.
 
-Le petit binaire EFI utilise les headers et le startup/relocation GNU-EFI ;
-ses notices BSD sont fournies dans `boot/THIRD_PARTY_NOTICES.txt`, dans les
-assets Android et avec la release.
+`snponly.efi` (iPXE) est un programme séparé fourni dans l’APK et la release, sous sa licence GPL propre. L’archive `iPXE-source.tar.gz` correspondant au chargeur accompagne la release ; les notices se trouvent dans les sources et les assets. wimboot et les composants Microsoft restent dans le bundle WinPE, avec leurs propres conditions. Aucun Windows complet ou image Microsoft n’est incorporé dans l’APK.
 
-AndroidX/Compose (Google), Kotlin et kotlinx.coroutines (JetBrains), Gradle et son
-wrapper sont sous Apache 2.0. La licence et les notices sont dans `android/`.
-Le fichier de notices Apache conserve également les notices additionnelles de
-dépendances qu'il contient ; les mentions MIT de ces composants ne désignent pas
-la licence actuelle de PocketInstall.
+Debian est téléchargé séparément depuis son miroir officiel. Son noyau, son initrd et ses paquets restent soumis à leurs licences respectives. Les images Windows doivent provenir des médias officiels correspondant aux droits de l’utilisateur. Un hash d’intégrité PocketInstall ne remplace pas une signature de l’éditeur.
 
-Le code natif de chemins Skia inclus par AndroidX Graphics Path conserve sa
-notice BSD dans les assets. JUnit est une dépendance de tests, absente de l'APK.
+## Références
 
-iPXE, wimboot, QEMU, OVMF et Microsoft ADK sont des dépendances **externes** des
-étapes de laboratoire/de préparation. Aucun binaire Microsoft, Windows, WinPE,
-iPXE ou wimboot n'est livré dans l'APK POC.
-
-## Microsoft et vérification des images
-
-La recherche n'a pas établi les droits permettant de redistribuer commercialement
-une image WinPE personnalisée ou des images Windows. Obtenir les média officiels,
-conserver les licences ADK/add-on/REDIST de la version exacte et faire vérifier ce
-périmètre avant publication d'images. Le projet propose de construire le bundle
-utilisateur et d'importer ses propres média.
-
-Un SHA-256 calculé par PocketInstall n'est pas une signature Microsoft. Vérifier
-le hash publié de l'ISO exacte puis tracer l'extraction ; les futurs manifests
-et mises à jour devront avoir une racine de confiance indépendante de HTTP.
+- [Licence d’un dépôt et droits GitHub](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)
+- [Licences GNU et programmes agrégés](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation)

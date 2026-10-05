@@ -40,7 +40,7 @@ class WindowsDownloadService : Service() {
         val url = intent.getStringExtra("url").orEmpty()
         val agent = intent.getStringExtra("agent").orEmpty()
         val selection = WindowsStorage.selection(this)
-        if(ServerStore.state.value.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING) || ServerStore.state.value.importingWinPe) {
+        if(ServerStore.state.value.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING) || WinPeDownloadStore.state.value.active || ServerStore.state.value.importingWinPe || LinuxDownloadStore.state.value.active) {
             WindowsDownloadStore.mutable.update { it.copy(active=false,message="Arrête le serveur et attends la fin des imports avant de télécharger.") }
             stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY
         }

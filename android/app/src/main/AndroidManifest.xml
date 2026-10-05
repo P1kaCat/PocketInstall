@@ -24,6 +24,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".WinPeDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <service android:name=".LinuxDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <service android:name=".WindowsDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <service android:name=".PocketInstallService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />

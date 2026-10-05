@@ -21,6 +21,9 @@ import app.pocketinstall.server.BootResource
 import app.pocketinstall.server.Ipv4Subnet
 import app.pocketinstall.server.LocalHttpServer
 import app.pocketinstall.server.LocalTftpServer
+import app.pocketinstall.server.LinuxHttp
+import app.pocketinstall.server.LinuxInstaller
+import app.pocketinstall.server.LinuxProfile
 import app.pocketinstall.server.WinPeHttp
 import app.pocketinstall.server.WinPeBundle
 import app.pocketinstall.server.RequestPhase
@@ -55,7 +58,7 @@ class PocketInstallService : Service() {
             stopSession("Serveur arrêté.")
             return START_NOT_STICKY
         }
-        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.status == ServerStatus.STARTING || ServerStore.state.value.importingWinPe || WindowsDownloadStore.state.value.active) return START_NOT_STICKY
+        if (intent?.action != ACTION_START || server != null || stopping.get() || ServerStore.state.value.status == ServerStatus.STARTING || ServerStore.state.value.importingWinPe || WindowsDownloadStore.state.value.active || LinuxDownloadStore.state.value.active || WinPeDownloadStore.state.value.active) return START_NOT_STICKY
         try {
             val notifications = getSystemService(NotificationManager::class.java)
             notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Session PocketInstall", NotificationManager.IMPORTANCE_LOW))
@@ -74,12 +77,14 @@ class PocketInstallService : Service() {
             val usb = intent.getBooleanExtra(EXTRA_USB, false)
             val pxe = intent.getBooleanExtra(EXTRA_PXE, false)
             val winPe = intent.getBooleanExtra(EXTRA_WINPE, false)
+            val linux = intent.getStringExtra(EXTRA_LINUX)?.let { LinuxProfile.valueOf(it) }
+            require(linux == null || (!winPe && !usb && !pxe))
             require(!winPe || (!usb && !pxe))
             require(!usb || !pxe) { "PXE USB is not supported by this prototype" }
-            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, usbMode = usb, pxeMode = pxe, winPeMode = winPe,
+            ServerStore.mutable.value = ServerSnapshot(status = ServerStatus.STARTING, usbMode = usb, pxeMode = pxe, winPeMode = winPe, linuxProfile = linux,
                 message = "Ouverture de la session…")
             scope.launch {
-                try { startSession(candidate, usb, pxe, winPe) }
+                try { startSession(candidate, usb, pxe, winPe, linux) }
                 catch (e: Exception) {
                     if (!stopping.get()) {
                         stopSession("Impossible de démarrer : ${e.message ?: e.javaClass.simpleName}.")
@@ -94,7 +99,7 @@ class PocketInstallService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean, winPe: Boolean) {
+    private fun startSession(candidateId: String, usb: Boolean, pxe: Boolean, winPe: Boolean, linux: LinuxProfile?) {
         if (stopping.get() || server != null) return
         val lan = LanNetwork.candidates(this, usb).firstOrNull { it.id == candidateId }
             ?: error("Interface privée absente ou modifiée")
@@ -104,6 +109,8 @@ class PocketInstallService : Service() {
         val resources = mutableMapOf("bootx64.efi" to BootResource(length, "application/efi") { assets.open("boot/bootx64.efi") })
         val directory = if (winPe) WinPeStorage.current(this)?.also { WinPeStorage.verify(it) }
             ?: error("Importe un bundle WinPE d'abord.") else null
+        val linuxDirectory = if(linux != null) LinuxStorage.current(this)?.also { LinuxInstaller.verify(it) }
+            ?: error("Télécharge Debian dans Préparer.") else null
         val windows = if (winPe && WindowsStorage.enabled(this)) WindowsStorage.current(this)
             ?: error("Importe une image Windows avant de préparer l'installation.") else null
         val imageInfo = windows?.let { WindowsStorage.info(it, verifyHash = true) }
@@ -112,12 +119,15 @@ class PocketInstallService : Service() {
         // Large immutable images are verified outside the lifecycle lock so stopping the service stays responsive.
         synchronized(lock) {
             if (stopping.get() || server != null) return@synchronized
-            val http = LocalHttpServer(lan.address, subnet, if (winPe) emptyMap() else resources,
-                resourceFactory = if (directory != null) ({ base ->
+            val http = LocalHttpServer(lan.address, subnet, if (winPe || linux != null) emptyMap() else resources,
+                resourceFactory = if(linuxDirectory != null && linux != null) ({ base ->
+                    val loaderLength=assets.openFd("boot/snponly.efi").use { it.length }
+                    LinuxHttp.resources(linuxDirectory,base,linux) + mapOf("linux/snponly.efi" to BootResource(loaderLength,"application/efi") {assets.open("boot/snponly.efi")})
+                }) else if (directory != null) ({ base ->
                     WinPeHttp.resources(directory, base, installPlan) + if(windows != null && imageInfo != null)
                         mapOf("install/image.wim" to BootResource(imageInfo.bytes,"application/octet-stream") { File(windows,"image.wim").inputStream() }) else emptyMap()
                 }) else null,
-                publicAliases = if (winPe) WinPeHttp.aliases else emptyMap(),
+                publicAliases = if(linux != null) LinuxHttp.aliases else if (winPe) WinPeHttp.aliases else emptyMap(),
                 monotonicMillis = { SystemClock.elapsedRealtime() },
                 onEvent = { event ->
                     if (stopping.get() || event.peer == lan.address.hostAddress) return@LocalHttpServer
@@ -130,6 +140,7 @@ class PocketInstallService : Service() {
                         val entries = old.events.filterNot { it.id == event.id } + event
                         old.copy(requests = old.requests + if (event.phase == RequestPhase.STARTED) 1 else 0,
                             clientsSeen = peers.size, events = entries.takeLast(50),
+                            linuxProgress = if(linux != null) old.linuxProgress.accept(event) else old.linuxProgress,
                             winPeProgress = if (winPe) old.winPeProgress.accept(event) else old.winPeProgress)
                     }
                 }, onStop = { reason -> stopSession(reason) },
@@ -144,6 +155,7 @@ class PocketInstallService : Service() {
                     .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketInstall:LAN").apply { acquire() }
             }
             http.start()
+            if(linuxDirectory != null && linux != null) LinuxHttp.check(http,lan.address,linuxDirectory,linux)
             if (directory != null) WinPeHttp.check(http, lan.address, directory)
             if (windows != null) WinPeHttp.checkImage(http,lan.address,File(windows,"image.wim"))
             if (stopping.get()) return@synchronized
@@ -183,9 +195,9 @@ class PocketInstallService : Service() {
                 }
             }
             ServerStore.mutable.update { it.copy(status = ServerStatus.RUNNING, ip = lan.address.hostAddress ?: "—",
-                url = if (winPe) "${http.baseUrl}/winpe/boot.ipxe" else http.bootUrl,
-                loaderUrl = if (winPe) "${http.baseUrl}/winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
-                message = if (winPe) "Serveur démarré · routes WinPE vérifiées. Démarre le PC en PXE." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
+                url = if(linux != null) "${http.baseUrl}/linux/boot.ipxe" else if (winPe) "${http.baseUrl}/winpe/boot.ipxe" else http.bootUrl,
+                loaderUrl = if(linux != null) "${http.baseUrl}/linux/snponly.efi" else if (winPe) "${http.baseUrl}/winpe/snponly.efi" else "", subnet = subnet.toString(), expiresAt = System.currentTimeMillis() + 30 * 60 * 1000,
+                message = if(linux != null) "Serveur Debian démarré · routes vérifiées. Démarre le PC en PXE." else if (winPe) "Serveur démarré · routes WinPE vérifiées. Démarre le PC en PXE." else if (pxe) "HTTP et TFTP ouverts · configuration DHCP / relais requise. Compatibilité physique non vérifiée."
                     else if (usb) "Serveur USB prêt · compatibilité UEFI non vérifiée. Vérifie le succès sur le PC."
                     else "Test EFI prêt. Vérifie le message de succès sur le PC.") }
         }
@@ -266,6 +278,7 @@ class PocketInstallService : Service() {
         const val EXTRA_CANDIDATE = "candidateId"
         const val EXTRA_USB = "usbMode"
         const val EXTRA_PXE = "pxeMode"
+        const val EXTRA_LINUX = "linuxProfile"
         const val EXTRA_WINPE = "winPeMode"
         private const val CHANNEL = "pocketinstall-session"
     }

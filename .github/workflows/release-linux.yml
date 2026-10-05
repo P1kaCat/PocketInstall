@@ -1,0 +1,108 @@
+name: PocketInstall 3.3.0 Linux
+on:
+  push:
+    branches: [main, codex/linux-install]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    if: github.ref == 'refs/heads/codex/linux-install'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winpe-ready
+          path: compiled-loaders
+          run-id: 37170716672
+          github-token: ${{ github.token }}
+      - name: Prepare loaders and Android SDK
+        run: |
+          (cd compiled-loaders && sha256sum -c LOADERS-SHA256SUMS --ignore-missing)
+          cp compiled-loaders/snponly.efi android/app/src/main/assets/boot/
+          tar -xOf compiled-loaders/iPXE-source.tar.gz ipxe-source/COPYING > android/app/src/main/assets/licenses/iPXE.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gnu-efi qemu-system-x86
+          make -C boot
+          cp boot/build/bootx64.efi android/app/src/main/assets/boot/
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify routes, compile and lint
+        working-directory: android
+        run: bash gradlew --no-daemon --console=plain :server-core:test --tests app.pocketinstall.server.LinuxInstallerTest --tests app.pocketinstall.server.WinPeHttpTest :server-core:installDist :app:assembleDebug :app:lintDebug
+      - name: Boot real Debian installer without disks
+        run: python3 scripts/test_linux_boot.py
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-out
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-out/PocketInstall-3.3.0.apk
+          cp compiled-loaders/snponly.efi compiled-loaders/iPXE-source.tar.gz release-out/
+          cp releases/3.3.0/NOTES.md release-out/READ-ME.md
+          cp linux-lab/result.json release-out/LINUX-VM.json
+          (cd release-out && sha256sum * > SHA256SUMS)
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify release-out/PocketInstall-3.3.0.apk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-validation
+          path: |
+            android/server-core/build/test-results/test/*.xml
+            android/app/build/reports/lint-results-debug.html
+            linux-lab/*.log
+            linux-lab/result.json
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: PocketInstall-3.3.0-reviewed
+          path: release-out/*
+          if-no-files-found: error
+  publish:
+    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[publish-linux]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Find successful build of exact tree
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          def api(path):
+              return json.loads(subprocess.check_output(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/'+path]))
+          tree=api('git/commits/'+os.environ['GITHUB_SHA'])['tree']['sha']
+          for run in api('actions/runs?branch=codex%2Flinux-install&per_page=15')['workflow_runs']:
+              if run['path']!='.github/workflows/release-linux.yml' or run['conclusion']!='success': continue
+              if api('git/commits/'+run['head_sha'])['tree']['sha']!=tree: continue
+              with open(os.environ['GITHUB_OUTPUT'],'a') as out: out.write('run='+str(run['id'])+'\n')
+              break
+          else: raise SystemExit('No validated Linux build matches this tree')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: PocketInstall-3.3.0-reviewed
+          path: release-out
+          run-id: ${{ steps.source.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Publish validated APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd release-out && sha256sum -c SHA256SUMS)
+          gh release create v3.3.0 release-out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'PocketInstall 3.3.0 — Linux bureau et serveur' --notes-file releases/3.3.0/NOTES.md

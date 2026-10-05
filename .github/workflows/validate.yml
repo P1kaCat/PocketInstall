@@ -11,13 +11,13 @@ permissions:
   actions: read
 jobs:
   winpe:
-    if: github.head_ref != 'codex/iso-auto-download' && github.head_ref != 'codex/storage-layout' && github.head_ref != 'codex/automatic-windows-size' && github.head_ref != 'codex/dism-image-version' && github.head_ref != 'codex/polished-interface'
+    if: github.head_ref != 'codex/linux-install'
     uses: ./.github/workflows/build-winpe.yml
     with:
       # Includes matching TPM/Secure Boot components; current installer is injected over HTTP.
       prepared_run_id: 37170055420
   android:
-    if: github.head_ref != 'codex/iso-auto-download' && github.head_ref != 'codex/storage-layout' && github.head_ref != 'codex/automatic-windows-size' && github.head_ref != 'codex/dism-image-version' && github.head_ref != 'codex/polished-interface'
+    if: github.head_ref != 'codex/linux-install'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

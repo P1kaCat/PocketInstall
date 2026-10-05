@@ -76,6 +76,7 @@ class MainActivity : ComponentActivity() {
     private var pendingUsb = false
     private var pendingPxe = false
     private var pendingWinPe = false
+    private var pendingLinux: String? = null
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Denied notifications do not prevent a foreground service; Android may
         // show it only in the active-apps/task manager surface.
@@ -110,14 +111,14 @@ class MainActivity : ComponentActivity() {
                     { pxeMode = it },
                     { chosen = it },
                     { networks = LanNetwork.candidates(this, usbMode); chosen = networks.firstOrNull()?.id ?: "" },
-                    { pendingNetwork = chosen; pendingUsb = usbMode; pendingPxe = pxeMode; pendingWinPe = false; requestStart() },
+                    { pendingNetwork = chosen; pendingUsb = usbMode; pendingPxe = pxeMode; pendingWinPe = false; pendingLinux = null; requestStart() },
                     { startService(Intent(this, PocketInstallService::class.java).setAction(PocketInstallService.ACTION_STOP)) },
                     { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall Boot URL", state.url)) },
                     { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("PocketInstall PXE relay",
                         "python3 scripts/prepare_pxe_relay.py --boot-url '${state.url}' --relay-ip IP_DU_RELAIS --interface INTERFACE_ETHERNET --target-mac MAC_DU_PC --output pxe-relay")) },
                     { runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
                         .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } },
-                    { pendingNetwork = chosen; pendingUsb = false; pendingPxe = false; pendingWinPe = true; requestStart() })
+                    { choice -> pendingNetwork = chosen; pendingUsb = false; pendingPxe = false; pendingWinPe = choice == InstallerChoice.WINDOWS; pendingLinux = choice.linux?.name; requestStart() })
             }
         }
     }
@@ -130,7 +131,7 @@ class MainActivity : ComponentActivity() {
         try {
             ContextCompat.startForegroundService(this, Intent(this, PocketInstallService::class.java)
                 .setAction(PocketInstallService.ACTION_START).putExtra(PocketInstallService.EXTRA_CANDIDATE, candidate)
-                .putExtra(PocketInstallService.EXTRA_USB, usb).putExtra(PocketInstallService.EXTRA_PXE, pxe).putExtra(PocketInstallService.EXTRA_WINPE, pendingWinPe))
+                .putExtra(PocketInstallService.EXTRA_USB, usb).putExtra(PocketInstallService.EXTRA_PXE, pxe).putExtra(PocketInstallService.EXTRA_WINPE, pendingWinPe).putExtra(PocketInstallService.EXTRA_LINUX, pendingLinux))
         } catch (e: Exception) {
             ServerStore.mutable.update { it.copy(status = ServerStatus.ERROR, message = "Démarrage refusé : ${e.javaClass.simpleName}.") }
         }
@@ -140,10 +141,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, chosen: String, selectedUsb: Boolean, selectedPxe: Boolean,
     onMode: (Boolean) -> Unit, onPxe: (Boolean) -> Unit, onChoose: (String) -> Unit, onRefresh: () -> Unit,
-    onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit, onCopyRelay: () -> Unit, onSettings: () -> Unit, onWinPe: () -> Unit) {
+    onStart: () -> Unit, onStop: () -> Unit, onCopy: () -> Unit, onCopyRelay: () -> Unit, onSettings: () -> Unit, onWinPe: (InstallerChoice) -> Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
+    val winpeDownload by WinPeDownloadStore.state.collectAsStateWithLifecycle()
+    var libraryRevision by remember {mutableStateOf(0)}
+    val linuxDownload by LinuxDownloadStore.state.collectAsStateWithLifecycle()
+    var choice by remember { mutableStateOf(runCatching { InstallerChoice.valueOf(context.getSharedPreferences("installer",Context.MODE_PRIVATE).getString("choice","WINDOWS")!!) }.getOrDefault(InstallerChoice.WINDOWS)) }
+    var linuxReady by remember { mutableStateOf(false) }
+    var linuxVerifying by remember { mutableStateOf(false) }
+    LaunchedEffect(linuxDownload.prepared,libraryRevision) {
+        linuxVerifying=true
+        linuxReady=withContext(Dispatchers.IO) { runCatching {
+            val directory=LinuxStorage.current(context) ?: return@runCatching false
+            app.pocketinstall.server.LinuxInstaller.verify(directory)
+            app.pocketinstall.server.LinuxProfile.entries.forEach { app.pocketinstall.server.LinuxHttp.preflight(directory,it) }
+            true
+        }.getOrDefault(false) }
+        linuxVerifying=false
+    }
     var tab by rememberSaveable { mutableStateOf(if(state.status==ServerStatus.RUNNING) 1 else 0) }
     var ready by rememberSaveable { mutableStateOf(false) }
     var diagnostic by rememberSaveable { mutableStateOf(false) }
@@ -151,7 +168,8 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
     var licenseOpen by rememberSaveable { mutableStateOf(false) }
     var exportMessage by remember { mutableStateOf("") }
     val active=state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
-    val busy=state.importingWinPe || download.active
+    val busy=state.importingWinPe || download.active || linuxDownload.active || winpeDownload.active || linuxVerifying
+    val installerReady=if(choice.linux!=null)linuxReady else ready
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if(uri!=null && state.ip!="—") scope.launch {
             exportMessage=runCatching { withContext(Dispatchers.IO) {
@@ -165,9 +183,9 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
         confirmButton={TextButton(onClick={licenseOpen=false}){Text("Fermer")}})
     Scaffold(contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
         NavigationBar {
-            listOf("Préparer","Installer","Aide").forEachIndexed { index,label ->
+            listOf("Préparer","Installer","Bibliothèque","Aide").forEachIndexed { index,label ->
                 NavigationBarItem(selected=tab==index,onClick={tab=index},enabled=!busy,
-                    icon={Icon(painterResource(listOf(R.drawable.ic_prepare,R.drawable.ic_install,R.drawable.ic_help)[index]),contentDescription=null)},label={Text(label)})
+                    icon={Icon(painterResource(listOf(R.drawable.ic_prepare,R.drawable.ic_install,R.drawable.ic_library,R.drawable.ic_help)[index]),contentDescription=null)},label={Text(label)})
             }
         }
     }) { padding ->
@@ -175,12 +193,18 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             LazyColumn(Modifier.widthIn(max=680.dp).fillMaxWidth(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                 item {
                     Text("PocketInstall",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
-                    Text(when(tab){0->"Ton Windows, prêt à installer.";1->"Connecte le PC. On s’occupe du reste.";else->"Un coup de main, au bon endroit."},style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(when(tab){0->"Choisis ton prochain système.";1->"Connecte le PC. On s’occupe du reste.";2->"Tes systèmes, à portée de main.";else->"Un coup de main, au bon endroit."},style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if(tab==0) {
+                    item {PocketSection("Système", "Windows conserve ses options habituelles. Linux bureau installe Debian avec Xfce. Linux serveur installe Debian sans bureau graphique, avec SSH. Ces deux choix Linux partagent les mêmes fichiers de démarrage.") {
+                        PocketChoices { InstallerChoice.entries.forEach { next -> FilterChip(selected=choice==next,onClick={choice=next;context.getSharedPreferences("installer",Context.MODE_PRIVATE).edit().putString("choice",next.name).apply()},enabled=!active && !busy,label={Text(next.label)}) } }
+                    }}
+                    if(choice.linux!=null) item {LinuxPanel(checkNotNull(choice.linux),linuxReady,linuxVerifying,active)}
+                    else {
                     item {WinPePanel(state, {busyImport->ServerStore.mutable.update{it.copy(importingWinPe=busyImport)}}, {ready=it})}
                     item {WindowsPanel(state) {busyImport->ServerStore.mutable.update{it.copy(importingWinPe=busyImport)}}}
                 }
+                    }
                 if(tab==1) {
                     item {PocketSection("Connexion", "Téléphone sur le Wi-Fi de la box, PC branché en Ethernet. Sélectionne UEFI PXE IPv4 au démarrage du PC. Garde le téléphone connecté au même réseau et le serveur démarré jusqu’à la fin du transfert. La Freebox doit être configurée une fois dans Aide.") {
                         if(!active) {
@@ -194,12 +218,13 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                             TextButton(onClick=onRefresh,enabled=!busy){Text("Actualiser les réseaux")}
                         } else Text("Serveur sur ${state.ip}",style=MaterialTheme.typography.bodyMedium)
                         if(active) OutlinedButton(onClick=onStop,modifier=Modifier.fillMaxWidth()){Text("Arrêter le serveur")}
-                        else Button(onClick=onWinPe,enabled=ready && !busy && !selectedUsb && networks.any{it.id==chosen},modifier=Modifier.fillMaxWidth()){Text("Démarrer le serveur")}
-                        if(!active && !ready) Text("Vérifie ou importe le ZIP WinPE dans Préparer pour démarrer.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Button(onClick={onWinPe(choice)},enabled=installerReady && !busy && !selectedUsb && networks.any{it.id==chosen},modifier=Modifier.fillMaxWidth()){Text("Démarrer le serveur")}
+                        if(!active && !installerReady) Text(if(choice.linux!=null) "Télécharge Debian dans Préparer pour démarrer." else "Vérifie ou importe le ZIP WinPE dans Préparer pour démarrer.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }}
-                    item {InstallationProgress(state)}
+                    item {if(state.linuxProfile!=null || (!active && choice.linux!=null))LinuxInstallationProgress(state) else InstallationProgress(state)}
                 }
-                if(tab==2) {
+                if(tab==2) item {LibraryPanel(busy || active) {ready=false;linuxReady=false;libraryRevision++}}
+                if(tab==3) {
                     item {PocketSection("Configuration Freebox", "Cette configuration reste manuelle. PocketInstall ne modifie aucun réglage de ta box. Réserve une IP au téléphone : sinon le fichier de configuration devra être exporté de nouveau.") {
                         Text("À faire une seule fois",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedButton(onClick={setup=!setup},modifier=Modifier.fillMaxWidth()){Text(if(setup) "Fermer le guide" else "Configurer ma Freebox")}

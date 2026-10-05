@@ -116,7 +116,7 @@ goto retry
         }
         for (name in injected - "boot.ipxe") check(get(address, server.port, "/${server.session}/winpe/$name").isNotEmpty())
     }
-    private fun get(address: Inet4Address, port: Int, path: String, range: String? = null, length: Long? = null): ByteArray = Socket().use { socket ->
+    internal fun get(address: Inet4Address, port: Int, path: String, range: String? = null, length: Long? = null): ByteArray = Socket().use { socket ->
         socket.connect(java.net.InetSocketAddress(address, port), 3000); socket.soTimeout = 5000
         socket.getOutputStream().write(("GET $path HTTP/1.1\r\nHost: ${address.hostAddress}:$port\r\n" +
             (range?.let { "Range: $it\r\n" } ?: "") + "\r\n").toByteArray(Charsets.US_ASCII))

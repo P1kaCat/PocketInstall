@@ -1,6 +1,6 @@
-PocketInstall Personal Use License 1.0
-Identifiant : LicenseRef-PocketInstall-Personal-1.0
-Date : 3 octobre 2026
+PocketInstall Contribution License 2.0
+Identifiant : LicenseRef-PocketInstall-Contribution-2.0
+Date : 5 octobre 2026
 
 Copyright (c) 2026 P1kaCat (PikaCat) et les titulaires des contributions concernées.
 Tous droits réservés, sauf les autorisations expressément accordées ci-dessous.
@@ -9,26 +9,43 @@ Tous droits réservés, sauf les autorisations expressément accordées ci-desso
 
 Cette licence s'applique au code, aux binaires, aux ressources et à la
 documentation originaux de PocketInstall distribués expressément sous cette
-licence (le « Logiciel »), à partir de la version 0.1.1-poc. Les composants tiers
+licence (le « Logiciel »), à partir de la version 3.3.0. Les composants tiers
 et les droits précédemment accordés sont régis par les articles 7 et 8.
 
-2. UTILISATION ET MODIFICATIONS PERSONNELLES AUTORISÉES
+2. UTILISATION ET EXCEPTION DE CONTRIBUTION
 
 Une autorisation gratuite, non exclusive, non transférable et sans droit de
-sous-licence vous est accordée pour :
-- télécharger, installer et exécuter le Logiciel sur vos propres appareils ;
-- conserver les copies nécessaires à cet usage et vos sauvegardes privées ;
-- étudier, modifier et compiler le Logiciel, sans limitation des modifications,
-  et utiliser vos versions modifiées pour votre seul usage personnel.
+sous-licence vous est accordée pour télécharger, installer et exécuter la
+version officielle sur vos propres appareils, et conserver les copies et
+sauvegardes privées nécessaires à cet usage personnel non commercial.
 
-Cet usage doit rester privé et non commercial. Vos copies et modifications ne
-doivent pas être accessibles à des tiers. Un stockage privé sous votre contrôle
-est autorisé ; un dépôt public ou un dépôt partagé avec d'autres utilisateurs
-ne constitue pas un stockage personnel.
+La modification, la recompilation et la création de versions dérivées du
+Logiciel sont interdites, sauf dans le cadre limité suivant : vous pouvez
+copier les sources, les modifier, les compiler et les tester en privé dans
+le seul but de préparer une contribution destinée au dépôt officiel
+https://github.com/P1kaCat/PocketInstall (par exemple une nouvelle distribution).
+Vous pouvez y soumettre votre proposition et les patchs nécessaires par issue
+ou pull request. Un fork de travail n'est permis que dans la mesure nécessaire
+à cette soumission et aux fonctions de GitHub, sans publication d'APK, de
+release, de miroir ou d'application dérivée indépendante.
+
+Cette exception ne permet ni l'exploitation d'une version modifiée hors de
+ces tests privés, ni sa republication. L'acceptation de votre proposition est
+à la discrétion des mainteneurs. Le refus ou l'absence de réponse ne donne
+aucune permission supplémentaire.
+
+En soumettant volontairement une contribution, vous confirmez disposer des
+droits nécessaires et accordez aux mainteneurs une autorisation mondiale,
+gratuite, non exclusive et irrévocable d'utiliser, modifier, intégrer et
+distribuer votre contribution au sein de PocketInstall sous la présente
+licence, sous réserve des licences tierces applicables. Vous conservez la
+propriété de votre code original. Les détails de soumission figurent dans
+CONTRIBUTING.md.
 
 3. AUCUNE REDISTRIBUTION OU PUBLICATION SANS ACCORD ÉCRIT
 
-Sans autorisation écrite préalable du titulaire des droits concernés, il est
+Hors soumission autorisée par l’article 2, sans autorisation écrite préalable
+du titulaire des droits concernés, il est
 interdit de distribuer, publier, republier, partager, vendre, louer, céder ou
 mettre à disposition de tiers le Logiciel ou une version dérivée, même
 gratuitement et même sous un autre nom.
@@ -60,7 +77,7 @@ Cette licence n'accorde aucun droit de marque sur le nom ou l'identité du proje
 
 6. AUTORISATIONS PARTICULIÈRES
 
-Toute permission dépassant l'usage personnel décrit ici doit être obtenue par
+Toute permission dépassant les autorisations décrites ici doit être obtenue par
 écrit auprès du titulaire des droits concernés. Pour les contributions détenues
 par P1kaCat, contacter P1kaCat via le dépôt officiel :
 https://github.com/P1kaCat/PocketInstall
@@ -88,7 +105,7 @@ conditions de la plateforme utilisée pour héberger le Logiciel. Les fonctions
 de consultation ou de fork permises par les conditions de GitHub n'accordent
 pas, à elles seules, un droit général de republier une application dérivée.
 
-Cette licence est une licence de source consultable pour usage personnel ;
+Cette licence autorise l'usage personnel et une exception de contribution ;
 elle n'est pas une licence open source au sens de l'Open Source Initiative.
 
 9. ABSENCE DE GARANTIE
@@ -107,3 +124,4 @@ accorde prennent fin, sous réserve des dispositions impératives applicables.
 Tous les droits non expressément accordés sont réservés. Une modification
 future de la licence ne retire pas rétroactivement les droits déjà accordés
 sur une copie conformément à sa licence.
+

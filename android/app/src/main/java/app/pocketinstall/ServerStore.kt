@@ -17,6 +17,8 @@ data class ServerSnapshot(
     val clientsSeen: Int = 0,
     val events: List<HttpEvent> = emptyList(),
     val message: String = "Importe l’environnement Windows PE, puis démarre le serveur.",
+    val linuxProfile: app.pocketinstall.server.LinuxProfile? = null,
+    val linuxProgress: app.pocketinstall.server.LinuxProgress = app.pocketinstall.server.LinuxProgress(),
     val winPeMode: Boolean = false,
     val winPeProgress: WinPeProgress = WinPeProgress(),
     val importingWinPe: Boolean = false,
