@@ -88,7 +88,7 @@ echo ${'$'}{esc:string}[2J${'$'}{esc:string}[H
  echo   POCKETINSTALL / DEBIAN 13
  echo   Chargement de l installateur...
 imgfree
-kernel $base/linux/linux initrd=initrd.gz auto=true priority=high netcfg/choose_interface=auto url=$base/linux/preseed.cfg || goto failed
+kernel $base/linux/linux initrd=initrd.gz auto=true priority=high netcfg/choose_interface=auto netcfg/get_hostname=pocketinstall netcfg/get_domain=local url=$base/linux/preseed.cfg || goto failed
 initrd $base/linux/initrd.gz || goto failed
 boot || goto failed
 :failed

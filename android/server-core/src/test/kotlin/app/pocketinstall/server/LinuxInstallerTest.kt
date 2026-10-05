@@ -54,7 +54,7 @@ class LinuxInstallerTest {
             assertTrue(preseed.contains(profile.tasks)); assertTrue(preseed.contains("$base/linux/started"))
             assertFalse(preseed.contains("partman"));assertFalse(preseed.contains("password"));assertFalse(preseed.contains("install-recommends"))
             val script=LinuxInstaller.script(base).toString(Charsets.US_ASCII)
-            assertTrue(script.contains("initrd=initrd.gz"));assertTrue(script.contains("url=$base/linux/preseed.cfg"))
+            assertTrue(script.contains("netcfg/get_hostname=pocketinstall"));assertTrue(script.contains("netcfg/get_domain=local"));assertTrue(script.contains("initrd=initrd.gz"));assertTrue(script.contains("url=$base/linux/preseed.cfg"))
         }
         assertThrows(IllegalArgumentException::class.java) { LinuxInstaller.hashes("0".repeat(64)+"  ./wrong/linux") }
         assertThrows(IllegalArgumentException::class.java) { LinuxInstaller.script("http://example.org/a") }

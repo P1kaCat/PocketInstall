@@ -12,8 +12,14 @@ try:
         if time.monotonic()>deadline: raise TimeoutError('Debian download timed out')
         time.sleep(1)
     endpoint=(root/'endpoint').read_text()
+    # Boot exactly the production iPXE kernel arguments, not a separate test configuration.
+    local_base=endpoint.rsplit('/linux/preseed.cfg',1)[0].replace('10.0.2.2','127.0.0.1')
+    script=urllib.request.urlopen(local_base+'/linux/boot.ipxe',timeout=5).read().decode('ascii')
+    kernel_line=next(line for line in script.splitlines() if line.startswith('kernel '))
+    arguments=kernel_line.split(' ',2)[2].split(' || ',1)[0]
+
     with (root/'console.log').open('w') as output:
-        vm=subprocess.Popen(['qemu-system-x86_64','-machine','q35','-m','2048','-display','none','-serial','stdio','-no-reboot','-kernel',str(root/'linux'),'-initrd',str(root/'initrd.gz'),'-append',f'auto=true priority=high netcfg/choose_interface=auto url={endpoint} console=ttyS0,115200n8','-nic','user,model=e1000'],stdout=output,stderr=subprocess.STDOUT)
+        vm=subprocess.Popen(['qemu-system-x86_64','-machine','q35','-m','2048','-display','none','-serial','stdio','-no-reboot','-kernel',str(root/'linux'),'-initrd',str(root/'initrd.gz'),'-append',arguments+' console=ttyS0,115200n8','-nic','user,model=e1000'],stdout=output,stderr=subprocess.STDOUT)
         deadline=time.monotonic()+180
         while not (root/'installer-started').exists():
             if vm.poll() is not None: raise RuntimeError('Debian VM exited before runtime callback')
