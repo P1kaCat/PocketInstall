@@ -1,13 +1,11 @@
-PocketInstall 3.1.0 — téléchargement Windows depuis le téléphone
+# PocketInstall 3.1.0 — Windows download from your phone
 
-- Nouveau bouton « Télécharger et préparer Windows » : récupération d’un lien temporaire sur le site officiel Microsoft, téléchargement de l’ISO x64, extraction et import automatiques.
-- Choix Windows 10 / Windows 11, Home / Pro et langue français / anglais US.
-- Progression, annulation et notification permettant de garder le téléchargement actif en arrière-plan.
-- Validation de la taille téléchargée, du format et de l’édition avant de déclarer Windows prêt. L’image précédente reste disponible en cas d’échec.
-- Import manuel disponible en secours si Microsoft demande une interaction ou refuse le téléchargement. En cas de coupure, relancer le bouton ; le téléchargement recommence.
+- Obtains a temporary official Microsoft x64 ISO link, downloads it and extracts/imports its image automatically.
+- Windows 10/11, Home/Pro and French/US English media choices.
+- Background progress notification and cancellation.
+- Validates transfer size, image format and edition before readiness; preserves the previous image on failure.
+- Manual import remains available if Microsoft's page needs interaction. Interrupted downloads restart.
 
-Utilisation : installer PocketInstall-3.1.0.apk, arrêter le serveur, choisir Windows / édition / langue, puis « Télécharger et préparer Windows ». Prévoir environ 15 à 20 Go libres. Une fois l’image prête, activer « Préparer l’installation au prochain démarrage PXE », démarrer le serveur, puis démarrer le PC en PXE. Le choix du disque et son effacement restent confirmés sur le PC.
+Allow approximately 15–20 GB of free space. Enable installation after preparation, then start the server and PXE boot the PC. Disk erasure is confirmed on the PC. Freebox configuration and WinPE ZIP are unchanged from 0.3.0.
 
-La configuration Freebox et le ZIP WinPE sont inchangés depuis 0.3.0-install-preview. Aucun nouveau réglage de la box si le démarrage WinPE fonctionne déjà.
-
-Validation de cette version : compilation APK et contrôles ciblés des liens / transferts HTTP. Le téléchargement Microsoft sur un téléphone physique n’est pas encore confirmé ; la page Microsoft reste disponible pour intervenir si nécessaire. Cette préversion ne certifie pas une installation Windows complète sur le PC physique.
+Validation covered APK compilation and targeted URL/transfer checks; physical Microsoft download and full physical installation were not certified at this release's publication.

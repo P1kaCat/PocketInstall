@@ -1,244 +1,28 @@
-# Procédures de test
+# Testing
 
-Toutes les commandes partent de la racine `PocketInstall`. Les résultats observés
-sont dans `VALIDATION.md`, distincts des procédures ci-dessous.
+## Build and focused checks
 
-## 1. Build du POC EFI
-
-Linux x64 :
+Use JDK 17, Android SDK 36 and Build Tools 36.0.0. Build the EFI asset with GNU-EFI and provide the release's iPXE loader and notices before packaging.
 
 ```sh
-sudo apt install build-essential binutils gnu-efi python3
 make -C boot
 python3 scripts/sync_android_boot.py
-```
-
-Le `.efi` préparé dans les assets peut être utilisé sans reconstruire GNU-EFI.
-Sa taille et son hash sont dans `android/app/src/main/assets/boot/manifest.json`.
-
-## 2. VM avec HTTP Boot natif, zéro disque invité
-
-```sh
-sudo apt install qemu-system-x86 ovmf python3-venv
-python3 -m venv .venv-lab
-. .venv-lab/bin/activate
-pip install virt-firmware==26.9
-python3 scripts/qemu_http_boot.py
-```
-
-Le script configure une **copie** des variables OVMF avec BootNext/URI, démarre un
-serveur sur loopback et donne au guest une NIC virtio via SLIRP. Le guest obtient
-son IPv4 via DHCP virtuel ordinaire ; l'URI est préconfigurée. Aucun DHCP domestique,
-TAP, root, USB ou disque cible n'est utilisé. Le firmware variables writable est
-le seul backing file modifiable de la VM, ce n'est pas un SSD invité.
-
-Une NIC virtio est utilisée car OVMF fournit `VirtioNetDxe` sans ROM externe.
-Le script ajoute aussi virtio-rng : les bibliothèques réseau de cette version
-d'EDK II exigent `EFI_RNG_PROTOCOL`. Une VM sans source d'aléa peut avoir les
-drivers HTTP dans le firmware sans que sa pile réseau soit activée.
-
-Le ROM iPXE de la NIC est désactivé (`romfile=`). Le test exige :
-
-1. GET HTTP du binaire, pas TFTP.
-2. `PocketInstall boot successful` dans la console UEFI série.
-3. Message d'arrêt et fin de la VM après le timeout du programme EFI.
-
-Un simple GET ne fait pas passer le test. Les traces sont `lab-output/http.jsonl`,
-`serial.log`, `qemu.log`, `result.json`. L'URL de session apparaît dans la console
-firmware brute ; masquer les sessions avant de publier les traces d'un réseau réel.
-
-### Si l'OVMF de la distribution n'a pas HTTP Boot
-
-Le résultat peut être `Not Found` puis un shell EFI sans aucune requête HTTP. Ce
-n'est pas une preuve que le serveur est faux. Ne pas remplacer silencieusement
-le boot par le ROM iPXE de QEMU : ce serait une autre chaîne.
-
-Construire un OVMF de laboratoire :
-
-```sh
-sudo apt install git build-essential uuid-dev nasm acpica-tools
-bash scripts/build_ovmf_http.sh
-python3 scripts/qemu_http_boot.py \
-  --code lab-output/edk2/Build/OvmfX64/RELEASE_GCC/FV/OVMF_CODE.fd \
-  --vars lab-output/edk2/Build/OvmfX64/RELEASE_GCC/FV/OVMF_VARS.fd
-```
-
-Ce firmware de test autorise explicitement HTTP clair :
-`NETWORK_HTTP_BOOT_ENABLE=TRUE`, `NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE`,
-`NETWORK_TLS_ENABLE=FALSE`, x64/GCC/RELEASE, FD 4 MiB. Il n'est jamais destiné à
-flasher un vrai PC. L'EDK II choisi est épinglé (`edk2-stable202605`) et utilise le
-toolchain `GCC`, plus `GCC5` supprimé dans cette version.
-
-## 3. Le même serveur Kotlin que l'APK
-
-JDK 17 complet (incluant `javac`), Android SDK 36 et Build Tools 36.0.0 :
-
-```sh
 cd android
-./gradlew :server-core:test :app:assembleDebug
-./gradlew :server-core:installDist
+bash gradlew :server-core:test :app:assembleDebug :app:lintDebug
 ```
 
-Dans un premier terminal à la racine :
+Server tests cover HTTP/TFTP bounds, WinPE import/routes/progress, Windows media parsing/sizing, Debian resources/progress and download preflight. Metadata tests ensure HEAD never reads an asset body, invalid sizes block, off-source redirects are rejected and changed sizes fail before image creation.
 
-```sh
-android/server-core/build/install/server-core/bin/server-core boot/build/bootx64.efi 127.0.0.1 8 8080
-```
+## Download UI
 
-Il affiche `BOOT_URL=http://127.0.0.1:8080/<session>/bootx64.efi`. Pour le guest
-SLIRP, remplacer **seulement** l'adresse par `10.0.2.2`, garder port/session/path et
-exécuter dans un deuxième terminal :
+For Windows, WinPE and Debian: open confirmation, observe size/source, cancel and verify no asset transfer. Repeat and accept. Test unknown Content-Length, missing assets, changed lengths, cancellation, offline state and insufficient space. Check all six locales and large-font/landscape scrolling. Actual publisher endpoints can change; successful mocks do not prove future upstream behavior.
 
-```sh
-python3 scripts/qemu_http_boot.py --external-url http://10.0.2.2:8080/SESSION/bootx64.efi --code CHEMIN_CODE --vars CHEMIN_VARS
-```
+## Boot and deployment
 
-Le programme est le module `server-core` effectivement lié à l'APK. Les tests
-JVM font de vrais échanges TCP : GET/HEAD/Range, taille >4 Gio synthétique,
-méthodes d'écriture, traversée de chemin, en-têtes malformés, sous-réseau, expiry
-et token périmé. Le test de 5 Gio n'écrit pas un fichier de 5 Gio : il vérifie
-les offsets Long et les headers avec un InputStream synthétique.
+Use separate disposable/diskless environments for boot testing and disposable guest disks for deployment. Existing scripts include `scripts/test_linux_boot.py`, `scripts/qemu_winpe_boot.py` and `scripts/qemu_windows_install.py`; inspect their current arguments before use.
 
-Version automatisée du même essai, après `:server-core:installDist` :
+Debian startup evidence requires the installer's early runtime callback, not kernel/initrd delivery. Installation completion requires its late callback; physical first boot is a separate observation. WinPE startup likewise requires its runtime signal. Windows deployment and first boot must be recorded separately from WIM delivery.
 
-```sh
-python3 scripts/test_kotlin_http_boot.py \
-  --code lab-output/edk2/Build/OvmfX64/RELEASE_GCC/FV/OVMF_CODE.fd \
-  --vars lab-output/edk2/Build/OvmfX64/RELEASE_GCC/FV/OVMF_VARS.fd
-```
+Never rerun a destructive install on a physical disk merely to test the UI. For a physical test, record OS/edition, firmware/Secure Boot state, NIC/driver, network transport, source/version, consent and observed runtime result. Omit personal identifiers and session tokens from public evidence.
 
-Elle lance le serveur sur un port libre, capture sa session, démarre QEMU,
-vérifie le journal Kotlin et la console EFI, puis ferme le serveur. Les contrôles
-Android (permissions, service, batterie, réseau réel) restent des tests séparés.
-
-## 4. Téléphone Android réel, puis VM
-
-Installer l'APK sur le téléphone (autorisation d'installation de la source locale
-si Android la demande). Aucune liaison USB et aucun root ne sont requis. Cette
-installation de l'application Android est distincte d'une application sur le PC.
-
-1. Téléphone sur un Wi-Fi privé normal, avec une IPv4 10/172.16–31/192.168.
-2. Ouvrir PocketInstall, choisir le réseau puis « Démarrer le test EFI ».
-3. Copier l'URL exacte ; l'écran reste allumé quand l'application est visible.
-4. Depuis le poste de laboratoire sur le même LAN, vérifier GET et HEAD via curl :
-
-```sh
-curl -I http://IP_TELEPHONE:8080/SESSION/bootx64.efi
-curl -o /tmp/pocketinstall.efi http://IP_TELEPHONE:8080/SESSION/bootx64.efi
-python3 scripts/verify_efi.py /tmp/pocketinstall.efi
-```
-
-5. Démarrer la VM avec `--external-url` égal à l'URL Android, et le firmware HTTP
-   validé. Vérifier les logs Android **et** message/arrêt VM. Le téléphone verra
-   généralement l'IP du poste hôte à cause du NAT SLIRP, pas l'IP privée du guest.
-6. Arrêter la session. La précédente URL ne doit plus répondre. Redémarrer et
-   vérifier qu'une nouvelle session est affichée.
-
-Essais supplémentaires après le premier succès : écran éteint, application en
-arrière-plan, sortie/reconnexion Wi-Fi, IP changée, port occupé, requêtes invalides,
-notifications refusées, Android 16 restrictions LAN opt-in, puis migration target
-37 avec permission LAN. Un foreground service ne garantit pas tous les comportements
-de Doze et des constructeurs ; garder l'écran allumé pour le premier boot physique.
-
-## 5. Vrai PC : premier essai sans écriture disque
-
-Le **POC EFI fourni** n'utilise aucun disque. Il peut fonctionner avec le SSD
-absent, vide ou contenant un Windows cassé. Pour la preuve matérielle la plus
-simple à auditer, déconnecter le SSD si cela est facilement possible ; ce n'est
-pas un prérequis technique de l'application EFI.
-
-1. Noter modèle/version BIOS et NIC, et conserver la clé BitLocker si le PC est
-   chiffré avant toute modification de Secure Boot.
-2. Consulter le manuel **du modèle exact** : HTTP Boot, mode manuel et Wi-Fi préboot.
-3. Relier le PC au LAN par l'interface réellement disponible dans le firmware.
-   Ethernet vers le routeur est compatible avec le téléphone en Wi-Fi. Un PC
-   entièrement sans fil exige un support Wi-Fi UEFI explicite.
-4. Démarrer la session Android, vérifier IP/URL et la portée depuis un autre appareil.
-5. Dans l'UEFI activer la pile réseau et sélectionner **HTTP Boot IPv4**. Saisir
-   l'URL exacte. Une entrée « PXE IPv4 » ne suffit pas.
-6. Adapter la politique Secure Boot au binaire non signé sur la machine de test,
-   sans modifier les clés de confiance. Le logiciel ne le fait jamais à ta place.
-7. Photographier `PocketInstall boot successful`. Il attend une touche/30 secondes
-   puis éteint le PC. Ne lancer aucune autre image d'installation.
-8. Arrêter le serveur et restaurer les paramètres de boot modifiés.
-
-La saisie d'une option de boot dans le firmware peut écrire sa NVRAM. Le POC
-n'écrit pas au SSD, ne change pas BCD/ESP et ne fait pas de test de partitionnement.
-Réussite = **log de transfert + message exécuté + arrêt**, pas « client connecté ».
-
-## 6. WinPE, seulement après
-
-Suivre `winpe/README.md`. Première VM **sans disque** puis Ethernet PC. Test physique
-WinPE avec tous les SSD déconnectés : le système Windows PE peut énumérer/mounter
-des volumes même si notre startnet n'exécute aucun installateur. Ne pas appliquer
-la garantie « aucun accès disque du code EFI » à un OS complet sans ce contrôle.
-
-## Fiche de résultat matériel
-
-```text
-Date / testeur :
-Modèle / SKU / BIOS :
-NIC / Wi-Fi chipset :
-HTTP manuel / auto :
-HTTP port 8080 autorisé :
-Secure Boot / dbx / CA :
-Type de LAN / DHCP / isolation :
-SHA256 EFI :
-GET reçu / message affiché / arrêt :
-Disques présents / aucune commande disque :
-WinPE (test séparé) / Ethernet / erreurs :
-```
-
-## Test câble USB sans disque
-
-Le transport USB est **expérimental et non validé sur matériel réel**.
-Suivre [USB_CABLE.md](USB_CABLE.md) : vérifier d'abord la reconnaissance réseau
-dans l'UEFI, activer manuellement le partage USB Android, puis démarrer le seul
-EFI du POC et constater son message avant l'arrêt. Aucun formatage ni
-installation Windows.
-
-Tester aussi l'absence d'interface USB, le retour depuis les paramètres,
-le changement de mode lorsque le serveur est arrêté, le débranchement USB
-(arrêt détecté par la surveillance), le changement d'IP/préfixe et la
-restauration de l'interface après rotation/réouverture de l'application.
-
-Les tests JVM UsbLinkPolicy couvrent l'exclusion du VPN/mobile/Wi-Fi, IPv6,
-adresses publiques, interfaces inactives et sous-réseaux débordant l'espace privé.
-Ils ne valident ni un pilote Android ni un firmware physique.
-
-## PXE IPv4 sans disque (0.1.3)
-
-Procédure complète : [PXE.md](PXE.md). La VM de référence ne lance aucun DHCP
-sur le LAN domestique : QEMU/SLIRP fournit DHCP/TFTP dans son réseau isolé.
-
-```sh
-python3 scripts/test_pxe_relay.py
-python3 scripts/qemu_pxe_boot.py
-cd android
-./gradlew :server-core:test :app:assembleDebug :app:lintDebug
-```
-
-Le boot VM exige RRQ exact, DATA identiques à l'asset, ACK de tous les blocs,
-message de succès exécuté et arrêt. La console et le PCAP sont dans
-`lab-pxe-output/`. Le TFTP de la VM est celui de référence QEMU/libslirp.
-Les tests JVM de `LocalTftpServer` vérifient séparément les échanges UDP réels,
-OACK, bloc vide final, options rejetées/ignorées, pertes d'ACK, mauvais TID,
-écriture refusée, session, expiry et bind occupé. Ils ne valident pas Android.
-
-Test physique : APK en mode PXE LAN, PC UEFI x64 en Ethernet, DHCP de boot
-configurable ou relais Linux. Photographier le message et relever le transfert.
-Un téléchargement HTTP **sur le relais** prouve la préparation du cache, pas
-l'exécution sur le PC. Relever séparément DHCP/PXE, TFTP, message et arrêt.
-Arrêter le relais et supprimer son cache après le test.
-
-Fiche supplémentaire :
-
-```text
-Méthode : TFTP Android direct / redirection / relais Linux
-Android / version APK / port 69 ouvert ou repli 6969 :
-Routeur / DHCP / next-server / boot filename / proxy-DHCP :
-MAC Ethernet ciblée / interface relais :
-UEFI PXE IPv4 (pas Legacy) / BIOS version :
-RRQ / octets / ACK / message / arrêt :
-SHA256 EFI / disques présents :
-```
+Historical evidence remains in `docs/evidence/`. It proves only the version and scope originally tested. See [Validation](VALIDATION.md).

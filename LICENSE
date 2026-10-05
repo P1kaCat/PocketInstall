@@ -1,127 +1,120 @@
 PocketInstall Contribution License 2.0
-Identifiant : LicenseRef-PocketInstall-Contribution-2.0
-Date : 5 octobre 2026
+Identifier: LicenseRef-PocketInstall-Contribution-2.0
+Date: October 5, 2026
 
-Copyright (c) 2026 P1kaCat (PikaCat) et les titulaires des contributions concernées.
-Tous droits réservés, sauf les autorisations expressément accordées ci-dessous.
+Copyright (c) 2026 P1kaCat (PikaCat) and the owners of the relevant contributions.
+All rights reserved except for the permissions expressly granted below.
 
-1. PÉRIMÈTRE
+1. SCOPE
 
-Cette licence s'applique au code, aux binaires, aux ressources et à la
-documentation originaux de PocketInstall distribués expressément sous cette
-licence (le « Logiciel »), à partir de la version 3.4.0. Les composants tiers
-et les droits précédemment accordés sont régis par les articles 7 et 8.
+This license applies to original PocketInstall code, binaries, assets and
+documentation expressly distributed under this license (the "Software"),
+from version 3.4.0 onward. Third-party components and previously granted
+rights are governed by sections 7 and 8.
 
-2. UTILISATION ET EXCEPTION DE CONTRIBUTION
+2. PERSONAL USE AND CONTRIBUTION EXCEPTION
 
-Une autorisation gratuite, non exclusive, non transférable et sans droit de
-sous-licence vous est accordée pour télécharger, installer et exécuter la
-version officielle sur vos propres appareils, et conserver les copies et
-sauvegardes privées nécessaires à cet usage personnel non commercial.
+You are granted a free, non-exclusive, non-transferable permission, without
+sublicensing rights, to download, install and run the official version on
+your own devices and keep the private copies and backups necessary for
+that personal, non-commercial use.
 
-La modification, la recompilation et la création de versions dérivées du
-Logiciel sont interdites, sauf dans le cadre limité suivant : vous pouvez
-copier les sources, les modifier, les compiler et les tester en privé dans
-le seul but de préparer une contribution destinée au dépôt officiel
-https://github.com/P1kaCat/PocketInstall (par exemple une nouvelle distribution).
-Vous pouvez y soumettre votre proposition et les patchs nécessaires par issue
-ou pull request. Un fork de travail n'est permis que dans la mesure nécessaire
-à cette soumission et aux fonctions de GitHub, sans publication d'APK, de
-release, de miroir ou d'application dérivée indépendante.
+Modification, recompilation and creation of derivative versions of the
+Software are prohibited except within this limited exception: you may copy,
+modify, compile and privately test its sources solely to prepare a
+contribution intended for the official repository,
+https://github.com/P1kaCat/PocketInstall (for example, a new distribution).
+You may submit your proposal and necessary patches there through an issue
+or pull request. A working fork is allowed only as necessary for that
+submission and GitHub functionality, without publishing APKs, releases,
+mirrors or an independent derivative application.
 
-Cette exception ne permet ni l'exploitation d'une version modifiée hors de
-ces tests privés, ni sa republication. L'acceptation de votre proposition est
-à la discrétion des mainteneurs. Le refus ou l'absence de réponse ne donne
-aucune permission supplémentaire.
+This exception does not permit use of a modified version beyond those
+private tests, or its republication. Maintainers decide whether to accept
+your proposal. Rejection or lack of a reply grants no additional permission.
 
-En soumettant volontairement une contribution, vous confirmez disposer des
-droits nécessaires et accordez aux mainteneurs une autorisation mondiale,
-gratuite, non exclusive et irrévocable d'utiliser, modifier, intégrer et
-distribuer votre contribution au sein de PocketInstall sous la présente
-licence, sous réserve des licences tierces applicables. Vous conservez la
-propriété de votre code original. Les détails de soumission figurent dans
-CONTRIBUTING.md.
+By voluntarily submitting a contribution, you confirm that you have the
+necessary rights and grant maintainers a worldwide, royalty-free,
+non-exclusive, irrevocable permission to use, modify, integrate and
+distribute it within PocketInstall under this license, subject to applicable
+third-party licenses. You retain ownership of your original code.
+Submission details are described in CONTRIBUTING.md.
 
-3. AUCUNE REDISTRIBUTION OU PUBLICATION SANS ACCORD ÉCRIT
+3. NO REDISTRIBUTION OR PUBLICATION WITHOUT WRITTEN PERMISSION
 
-Hors soumission autorisée par l’article 2, sans autorisation écrite préalable
-du titulaire des droits concernés, il est
-interdit de distribuer, publier, republier, partager, vendre, louer, céder ou
-mettre à disposition de tiers le Logiciel ou une version dérivée, même
-gratuitement et même sous un autre nom.
+Except for submissions authorized by section 2, without prior written
+permission from the relevant rights holder, you may not distribute,
+publish, republish, share, sell, rent, transfer or make the Software or a
+derivative version available to third parties, even free of charge or
+under another name.
 
-Cette interdiction couvre notamment :
-- les APK, exécutables, fichiers EFI, sources et ressources protégées ;
-- les versions originales, modifiées, recompilées ou intégrées à un autre projet ;
-- les dépôts, forks publics, miroirs, boutiques d'applications et sites de téléchargement ;
-- les patchs ou extraits reproduisant une partie substantielle du code protégé ;
-- la transmission d'une copie à un ami, un client ou une communauté.
+This prohibition includes:
+- protected APKs, executables, EFI files, sources and assets;
+- original, modified, recompiled or integrated versions;
+- repositories, public forks, mirrors, app stores and download websites;
+- patches or excerpts reproducing a substantial part of protected code;
+- providing a copy to a friend, customer or community.
 
-Vous pouvez décrire vos modifications et publier vos observations sans
-redistribuer le Logiciel ni reproduire une partie substantielle de son contenu.
-Vous pouvez partager un lien vers la distribution officielle.
+You may describe modifications and publish observations without
+redistributing the Software or reproducing a substantial part of its
+content. You may share a link to the official distribution.
 
-4. AUCUNE EXPLOITATION COMMERCIALE
+4. NO COMMERCIAL EXPLOITATION
 
-L'autorisation personnelle n'inclut pas l'utilisation du Logiciel dans une
-activité professionnelle ou commerciale, un service proposé à des tiers, une
-offre payante ou gratuite destinée à des clients, ou un produit redistribué.
-Une autorisation écrite distincte est nécessaire pour ces usages.
+Personal permission does not include use in a professional or commercial
+activity, a service for third parties, a paid or free customer offering,
+or a redistributed product. Separate written permission is required.
 
-5. NOTICES ET ATTRIBUTION
+5. NOTICES AND ATTRIBUTION
 
-Conservez cette licence, les notices de copyright et les notices des composants
-tiers dans vos copies. Ne présentez pas une version modifiée comme une version
-officielle de PocketInstall et ne revendiquez pas la paternité du code original.
-Cette licence n'accorde aucun droit de marque sur le nom ou l'identité du projet.
+Preserve this license, copyright notices and third-party notices in your
+copies. Do not represent a modified version as an official PocketInstall
+version or claim authorship of the original code. This license grants no
+trademark rights to the project's name or identity.
 
-6. AUTORISATIONS PARTICULIÈRES
+6. ADDITIONAL PERMISSIONS
 
-Toute permission dépassant les autorisations décrites ici doit être obtenue par
-écrit auprès du titulaire des droits concernés. Pour les contributions détenues
-par P1kaCat, contacter P1kaCat via le dépôt officiel :
+Any permission exceeding those described here must be obtained in writing
+from the relevant rights holder. For contributions owned by P1kaCat, contact
+P1kaCat through the official repository:
 https://github.com/P1kaCat/PocketInstall
 
-L'absence de réponse, la visibilité du code et la possibilité technique de
-télécharger ou de copier le Logiciel ne constituent pas une autorisation.
+Lack of a reply, source visibility and the technical ability to download
+or copy the Software do not constitute permission.
 
-7. COMPOSANTS TIERS ET VERSIONS ANTÉRIEURES
+7. THIRD-PARTY COMPONENTS AND EARLIER VERSIONS
 
-Cette licence ne remplace ni ne restreint les licences des composants tiers.
-Leurs titulaires, textes de licence et notices sont conservés séparément.
+This license does not replace or restrict third-party licenses. Their
+owners, license texts and notices are preserved separately.
 
-Elle ne retire pas les droits déjà accordés sur les versions, copies ou
-contributions antérieures distribuées sous MIT ou une autre licence. En
-particulier, le POC 0.1.0 et son historique restent soumis aux autorisations
-qu'ils accordaient. Ces droits ne constituent pas une autorisation générale
-de redistribuer les nouveaux éléments propres à PocketInstall distribués
-uniquement sous la présente licence.
+It does not revoke rights already granted for earlier versions, copies or
+contributions distributed under MIT or another license. In particular,
+the 0.1.0 POC and its history retain their original permissions. Those rights
+do not grant general permission to redistribute new original PocketInstall
+elements distributed solely under this license.
 
-8. DROITS IMPÉRATIFS ET CONDITIONS DE LA PLATEFORME
+8. MANDATORY RIGHTS AND PLATFORM TERMS
 
-Aucune disposition ne limite les droits ou exceptions auxquels la loi
-applicable interdit de renoncer, ni les autorisations minimales découlant des
-conditions de la plateforme utilisée pour héberger le Logiciel. Les fonctions
-de consultation ou de fork permises par les conditions de GitHub n'accordent
-pas, à elles seules, un droit général de republier une application dérivée.
+Nothing limits rights or exceptions that applicable law does not permit
+you to waive, or minimum permissions arising from the terms of the platform
+hosting the Software. Viewing or forking functionality allowed under
+GitHub's terms does not, by itself, grant general permission to republish
+a derivative application.
 
-Cette licence autorise l'usage personnel et une exception de contribution ;
-elle n'est pas une licence open source au sens de l'Open Source Initiative.
+This license permits personal use and a contribution exception; it is not
+an open-source license within the meaning of the Open Source Initiative.
 
-9. ABSENCE DE GARANTIE
+9. NO WARRANTY
 
-Dans la limite permise par la loi applicable, le Logiciel est fourni en l'état,
-sans garantie de fonctionnement, de compatibilité, de sécurité ou d'adaptation
-à un usage particulier. Les titulaires ne sont pas responsables des dommages
-résultant de son utilisation dans la mesure où une telle exclusion est légale.
-Le Logiciel est un prototype ; sauvegardez vos données avant toute opération
-susceptible de les affecter.
+To the extent permitted by applicable law, the Software is provided as is,
+without warranties of operation, compatibility, security or fitness for a
+particular purpose. Rights holders are not liable for damage arising from
+its use to the extent such exclusion is lawful. The Software is a prototype;
+back up your data before any operation that may affect it.
 
-10. FIN DE L'AUTORISATION ET DROITS RÉSERVÉS
+10. TERMINATION AND RESERVED RIGHTS
 
-En cas de violation des conditions de cette licence, les autorisations qu'elle
-accorde prennent fin, sous réserve des dispositions impératives applicables.
-Tous les droits non expressément accordés sont réservés. Une modification
-future de la licence ne retire pas rétroactivement les droits déjà accordés
-sur une copie conformément à sa licence.
-
+If you violate this license, its permissions terminate, subject to
+mandatory applicable provisions. All rights not expressly granted are
+reserved. Future license changes do not retroactively revoke rights
+already granted for a copy under its applicable license.

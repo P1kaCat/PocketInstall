@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pocketinstall.server.LinuxProfile
+import app.pocketinstall.server.LinuxInstaller
+import app.pocketinstall.server.DownloadMetadata
 import app.pocketinstall.server.LinuxStage
 
 enum class InstallerChoice(val label: String, val linux: LinuxProfile?) {
@@ -18,6 +20,19 @@ enum class InstallerChoice(val label: String, val linux: LinuxProfile?) {
 fun LinuxPanel(profile: LinuxProfile, ready: Boolean, verifying: Boolean, active: Boolean) {
     val context=LocalContext.current
     val download by LinuxDownloadStore.state.collectAsStateWithLifecycle()
+    var confirmDownload by remember { mutableStateOf(false) }
+    if(confirmDownload) DownloadConfirmationDialog(profile.label,
+        listOf(DownloadSource(context.getString(R.string.download_source_debian),LinuxInstaller.SOURCE)),
+        context.getString(R.string.download_debian_packages),
+        inspect={connection ->
+            (LinuxInstaller.names + "SHA256SUMS").associateWith { name ->
+                val url = LinuxInstaller.SOURCE + if(name=="SHA256SUMS") name else "netboot/debian-installer/amd64/$name"
+                DownloadMetadata.size(url,{it==url},if(name=="SHA256SUMS")262144 else 134217728,connection=connection)
+            }
+        }, close={confirmDownload=false}, confirmed={sizes ->
+            confirmDownload=false
+            LinuxDownloadService.start(context,sizes)
+        })
     PocketSection(profile.label,"Les fichiers de démarrage sont téléchargés depuis Debian et vérifiés par SHA-256. Le PC télécharge les paquets sur Internet pendant l’installation. Tu choisis ton compte et ton disque sur le PC ; aucun disque n’est effacé automatiquement. La configuration Freebox actuelle reste valable. Debian serveur utilise la ligne de commande et SSH, sans bureau graphique.") {
         Text(if(profile==LinuxProfile.DESKTOP) "Un bureau léger avec Xfce." else "Sans interface graphique · SSH inclus.",style=MaterialTheme.typography.bodyMedium)
         if(download.active) {
@@ -27,7 +42,7 @@ fun LinuxPanel(profile: LinuxProfile, ready: Boolean, verifying: Boolean, active
             OutlinedButton(onClick={LinuxDownloadService.cancel(context)}){Text("Annuler")}
         } else {
             PocketNote(when {verifying->"Vérification des fichiers…";ready->"Environnement Debian prêt";else->"Télécharge le démarrage Debian · environ 55 Mio"})
-            Button(onClick={LinuxDownloadService.start(context)},enabled=!active && !verifying,modifier=Modifier.fillMaxWidth()) {Text(if(ready) "Actualiser Debian" else "Télécharger Debian")}
+            Button(onClick={confirmDownload=true},enabled=!active && !verifying,modifier=Modifier.fillMaxWidth()) {Text(if(ready) "Actualiser Debian" else "Télécharger Debian")}
             if(download.message.isNotEmpty()) Text(download.message,style=MaterialTheme.typography.bodySmall)
             if(ready) Text("Passe dans Installer pour démarrer le serveur.",style=MaterialTheme.typography.bodySmall)
         }

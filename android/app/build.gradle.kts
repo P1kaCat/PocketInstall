@@ -11,8 +11,8 @@ android {
         applicationId = "app.pocketinstall"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "3.4.0"
+        versionCode = 15
+        versionName = "3.4.1"
     }
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isIncludeAndroidResources = true }

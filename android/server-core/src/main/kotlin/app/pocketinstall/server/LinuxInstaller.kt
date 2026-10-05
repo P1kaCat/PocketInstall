@@ -50,15 +50,17 @@ object LinuxInstaller {
         File(directory,"initrd.gz").inputStream().use { require(it.read()==0x1f && it.read()==0x8b) { "Initrd invalide" } }
     }
     fun download(directory: File, cancelled: () -> Boolean, connection: (HttpURLConnection) -> Unit,
-                 progress: (String,Long,Long) -> Unit) {
+                 progress: (String,Long,Long) -> Unit, approvedSizes: Map<String,Long>? = null) {
         require(directory.isDirectory)
         fun fetch(path: String, target: File, max: Long) {
             val conn=URL(SOURCE+path).openConnection() as HttpURLConnection
             connection(conn); conn.connectTimeout=15000; conn.readTimeout=15000; conn.instanceFollowRedirects=false
+            conn.setRequestProperty("Accept-Encoding","identity")
             try {
                 require(!cancelled()) { "Téléchargement annulé" }
                 require(conn.responseCode==200) { "Debian : HTTP ${conn.responseCode}" }
                 val total=conn.contentLengthLong
+                if(approvedSizes != null) DownloadMetadata.checkApproved(total,approvedSizes.getValue(target.name))
                 require(total <= max) { "Fichier trop volumineux" }
                 conn.inputStream.use { input -> target.outputStream().use { output ->
                     val buffer=ByteArray(65536); var bytes=0L

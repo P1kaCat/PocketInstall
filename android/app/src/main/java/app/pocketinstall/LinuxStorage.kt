@@ -12,12 +12,12 @@ object LinuxStorage {
         return File(context.filesDir,"linux/$id").takeIf { it.isDirectory }
     }
     fun prepare(context: Context, cancelled: () -> Boolean, connection: (java.net.HttpURLConnection) -> Unit,
-                progress: (String,Long,Long) -> Unit) {
+                progress: (String,Long,Long) -> Unit, approvedSizes: Map<String,Long>) {
         val root=File(context.filesDir,"linux").apply { mkdirs() }
         require(root.usableSpace>300L*1024*1024) { "Libère au moins 300 Mio sur le téléphone" }
         val directory=File(root,UUID.randomUUID().toString()).apply { mkdirs() }
         try {
-            LinuxInstaller.download(directory,cancelled,connection,progress)
+            LinuxInstaller.download(directory,cancelled,connection,progress,approvedSizes)
             LinuxProfile.entries.forEach { LinuxHttp.preflight(directory,it) }
             if(cancelled()) throw InterruptedException()
             check(context.getSharedPreferences("linux",Context.MODE_PRIVATE).edit().putString("bundle",directory.name).commit())

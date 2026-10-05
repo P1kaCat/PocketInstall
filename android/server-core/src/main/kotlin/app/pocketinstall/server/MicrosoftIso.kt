@@ -16,6 +16,7 @@ object MicrosoftIso {
 
     fun download(url: String, destination: File, userAgent: String, cancelled: () -> Boolean,
                  connection: (HttpURLConnection?) -> Unit, progress: (Long,Long) -> Unit,
+                 approvedBytes: Long? = null,
                  open: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }) {
         var address = url
         var redirects = 0
@@ -37,6 +38,7 @@ object MicrosoftIso {
                 }
                 check(status == 200) { if(status == 403 || status == 401) "Lien Microsoft expiré ou refusé. Relance le téléchargement pour obtenir un nouveau lien." else "Microsoft répond HTTP $status." }
                 val total = http.contentLengthLong
+                DownloadMetadata.checkApproved(total, approvedBytes)
                 require(total in 1048576..WindowsImage.MAX_BYTES) { "La réponse ne contient pas une ISO de taille valide." }
                 require(destination.parentFile!!.usableSpace > total * 2 + 67108864) { "Espace insuffisant : prévois deux fois la taille de l'ISO pour télécharger puis préparer Windows." }
                 http.inputStream.use { input -> destination.outputStream().use { output ->

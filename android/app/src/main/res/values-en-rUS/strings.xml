@@ -114,4 +114,17 @@
     <string name="library">Library</string>
     <string name="tagline_library">Your systems, within reach.</string>
     <string name="linux_required">Download Debian in Prepare before starting.</string>
+    <string name="download_size_failed">Size unavailable. No download started.</string>
+    <string name="download_size_checking">Checking the size with the source…</string>
+    <string name="download_size_total">Download: %1$s</string>
+    <string name="download_size_retry">Retry</string>
+    <string name="download_confirm">Download</string>
+    <string name="download_network_notice">This download uses your Internet connection. No file is transferred until you confirm.</string>
+    <string name="download_source_microsoft">Official Microsoft source ↗</string>
+    <string name="download_source_bundle">PocketInstall ZIP source ↗</string>
+    <string name="download_source_adk">WinPE origin: Microsoft ADK ↗</string>
+    <string name="download_source_debian">Official Debian source ↗</string>
+    <string name="download_windows_space">Allow approximately twice the ISO size for downloading and preparation. Windows is a Microsoft product. PocketInstall is not affiliated with or endorsed by Microsoft.</string>
+    <string name="download_winpe_provenance">Bundle prepared by PocketInstall using Microsoft ADK/WinPE. Microsoft components remain subject to their terms. Linking to their source does not grant redistribution rights.</string>
+    <string name="download_debian_packages">This size covers boot files. The PC will download Debian packages over the Internet; their size depends on installer choices.</string>
 </resources>

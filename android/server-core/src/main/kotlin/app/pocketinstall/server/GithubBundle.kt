@@ -4,32 +4,34 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 
-class GithubLoginRequired : Exception("Connexion GitHub nécessaire pour accéder au dépôt privé")
 object GithubBundle {
     const val URL = "https://github.com/P1kaCat/PocketInstall/releases/download/v3.2.0/PocketInstall-WinPE-x64.zip"
+    const val RELEASE_PAGE = "https://github.com/P1kaCat/PocketInstall/releases/tag/v3.2.0"
+    const val MICROSOFT_SOURCE = "https://learn.microsoft.com/en-us/windows-hardware/get-started/adk-install"
     const val SHA256 = "c2efce1840b197c08718b3ef76d0c43f2092f385a0f5e2f0db8aa7dd5ede2920"
     fun allowed(url: String): Boolean = runCatching {
         val uri=URI(url)
         uri.scheme=="https" && uri.userInfo==null && (uri.port==-1 || uri.port==443) && uri.host in setOf("github.com","release-assets.githubusercontent.com","objects.githubusercontent.com")
     }.getOrDefault(false)
-    fun download(target: File, cookie: String, cancelled: () -> Boolean, connection: (HttpURLConnection)->Unit, progress: (Long,Long)->Unit) {
+    fun download(target: File, approvedBytes: Long, cancelled: () -> Boolean, connection: (HttpURLConnection)->Unit, progress: (Long,Long)->Unit) {
         var url=URL
         repeat(8) {
             require(allowed(url)) { "Adresse GitHub refusée" }
             val conn=java.net.URL(url).openConnection() as HttpURLConnection
             connection(conn); conn.instanceFollowRedirects=false;conn.connectTimeout=15000;conn.readTimeout=20000
-            conn.setRequestProperty("User-Agent","PocketInstall/3.4.0")
-            if(URI(url).host=="github.com" && cookie.isNotBlank())conn.setRequestProperty("Cookie",cookie)
+            conn.setRequestProperty("User-Agent","PocketInstall/3.4.1")
+            conn.setRequestProperty("Accept-Encoding","identity")
             try {
                 if(cancelled())throw InterruptedException()
                 val status=conn.responseCode
-                if(status in setOf(401,403,404))throw GithubLoginRequired()
+                if(status in setOf(401,403,404))error("Le ZIP public GitHub est indisponible (HTTP $status).")
                 if(status in setOf(301,302,303,307,308)) {
                     url=URI(url).resolve(conn.getHeaderField("Location") ?: error("Redirection absente")).toString()
-                    if(URI(url).host=="github.com" && URI(url).path.startsWith("/login"))throw GithubLoginRequired()
+                    require(!(URI(url).host=="github.com" && URI(url).path.startsWith("/login"))) { "Le ZIP doit être accessible publiquement." }
                 } else {
                     require(status==200) { "GitHub : HTTP $status" }
                     val total=conn.contentLengthLong
+                    DownloadMetadata.checkApproved(total,approvedBytes)
                     require(total in 1..1073741824) { "Taille du ZIP absente ou invalide" }
                     require(target.parentFile!!.usableSpace>total+800L*1024*1024) { "Espace insuffisant sur le téléphone" }
                     conn.inputStream.use { input -> target.outputStream().use { output ->

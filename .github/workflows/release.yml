@@ -20,7 +20,7 @@ concurrency:
 jobs:
   tested_bundle:
     # Linux/profile updates publish the validated APK through release-linux.yml.
-    if: ${{ !contains(github.event.head_commit.message, '[publish-linux]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[publish-linux]') && !contains(github.event.head_commit.message, '[publish-consent]') }}
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}

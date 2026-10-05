@@ -1,17 +1,15 @@
-# Installer Debian
+# Install Debian
 
-Dans Préparer, choisis **Linux bureau** (Debian 13 avec Xfce) ou **Linux serveur** (Debian 13 avec SSH, sans interface graphique), puis **Télécharger Debian**. Le téléphone récupère le noyau et l’initrd officiels sur `deb.debian.org`, vérifie les SHA-256 et les routes HTTP des deux profils avant de déclarer l’environnement prêt.
+Choose **Linux desktop** for Debian 13 Xfce, or **Linux server** for Debian 13 standard tools and SSH without a graphical desktop. No distribution is universally the most optimized for every server workload.
 
-Les deux profils partagent les mêmes fichiers. La bibliothèque permet de supprimer cette copie commune. Aucun ZIP WinPE ni ISO Linux n’est nécessaire.
+1. Stop any active server/transfer and choose your profile in Prepare.
+2. Tap Download Debian. PocketInstall checks the exact sizes of the kernel, initrd and SHA256SUMS without downloading their bodies.
+3. Review the total and official source, then confirm. The files are verified before the environment becomes ready.
+4. Start the server and boot the PC in UEFI PXE IPv4 using the existing router setup.
+5. Finish account, disk and installation choices on the PC. Internet access is needed to fetch packages.
 
-Démarre le serveur dans Installer, puis le PC en UEFI PXE IPv4. La configuration Freebox déjà utilisée pour Windows reste valable. Le script public `/boot.ipxe` sélectionne le profil actif et récupère les ressources avec le token de la session, sans saisie sur le PC.
+The displayed boot download is roughly 55 MiB; it is not the full installation size. Package size depends on installer choices. Neither a disk nor a default password is preselected. Windows storage/debloat options do not apply to Linux.
 
-Debian initialise son propre réseau et récupère la configuration, puis les paquets sur Internet. Crée ton compte et choisis le disque et le partitionnement dans son installateur. PocketInstall ne présélectionne aucun disque et ne préconfirme aucun effacement pour Linux. Le profil serveur installe SSH avec le compte choisi, sans mot de passe prédéfini et sans connexion root par mot de passe.
+Progress uses actual installer early/late callbacks. A downloaded kernel/initrd is not proof of startup or completion. A completed physical installation and first boot remain to be verified. After phone-session expiry, Debian may continue but callbacks cannot update the app.
 
-Les signaux « installateur démarré » et « installation terminée » viennent des commandes early/late de Debian. Une simple requête pour le script ou l’initrd ne suffit pas. Le premier démarrage reste à vérifier sur le PC. Une session expire après 30 minutes ; l’installation peut continuer après réception des fichiers, mais ses derniers signaux ne seront plus reçus si la session est fermée.
-
-## Sources
-
-- [Images Debian amd64 officielles](https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/)
-- [Options de préconfiguration Debian](https://www.debian.org/releases/trixie/amd64/apbs04.en.html)
-- [Signaux early/late de l’installateur](https://www.debian.org/releases/trixie/amd64/apbs05.en.html)
+Source: [Debian amd64 installer images](https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/). SHA256SUMS verifies transferred files; upstream licensing still applies.

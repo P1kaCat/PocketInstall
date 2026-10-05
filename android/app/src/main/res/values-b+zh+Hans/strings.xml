@@ -114,4 +114,17 @@
     <string name="library">库</string>
     <string name="tagline_library">管理已保存的系统。</string>
     <string name="linux_required">请先在准备中下载Debian。</string>
+    <string name="download_size_failed">无法获取大小。未开始下载。</string>
+    <string name="download_size_checking">正在向来源检查文件大小…</string>
+    <string name="download_size_total">下载：%1$s</string>
+    <string name="download_size_retry">重试</string>
+    <string name="download_confirm">下载</string>
+    <string name="download_network_notice">此下载使用互联网连接。确认前不会传输文件。</string>
+    <string name="download_source_microsoft">Microsoft 官方来源 ↗</string>
+    <string name="download_source_bundle">PocketInstall ZIP 来源 ↗</string>
+    <string name="download_source_adk">WinPE 来源：Microsoft ADK ↗</string>
+    <string name="download_source_debian">Debian 官方来源 ↗</string>
+    <string name="download_windows_space">下载和准备大约需要 ISO 大小两倍的可用空间。Windows 是 Microsoft 的产品。PocketInstall 不隶属于 Microsoft，也未获得其认可。</string>
+    <string name="download_winpe_provenance">此包由 PocketInstall 使用 Microsoft ADK/WinPE 准备。Microsoft 组件受其条款约束。提供来源链接不代表获得再分发许可。</string>
+    <string name="download_debian_packages">此大小仅包含启动文件。电脑随后会通过互联网下载 Debian 软件包；大小取决于安装选项。</string>
 </resources>

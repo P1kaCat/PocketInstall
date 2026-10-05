@@ -114,4 +114,17 @@
     <string name="library">ライブラリ</string>
     <string name="tagline_library">保存したシステムを管理。</string>
     <string name="linux_required">準備でDebianをダウンロードしてください。</string>
+    <string name="download_size_failed">サイズを確認できません。ダウンロードは開始されていません。</string>
+    <string name="download_size_checking">配布元でサイズを確認中…</string>
+    <string name="download_size_total">ダウンロード: %1$s</string>
+    <string name="download_size_retry">再試行</string>
+    <string name="download_confirm">ダウンロード</string>
+    <string name="download_network_notice">インターネット接続を使用します。確認するまでファイルは転送されません。</string>
+    <string name="download_source_microsoft">Microsoft公式配布元 ↗</string>
+    <string name="download_source_bundle">PocketInstall ZIPの配布元 ↗</string>
+    <string name="download_source_adk">WinPEの提供元: Microsoft ADK ↗</string>
+    <string name="download_source_debian">Debian公式配布元 ↗</string>
+    <string name="download_windows_space">ダウンロードと準備にはISOサイズの約2倍の空き容量が必要です。WindowsはMicrosoftの製品です。PocketInstallはMicrosoftと提携しておらず、承認も受けていません。</string>
+    <string name="download_winpe_provenance">Microsoft ADK/WinPEを使用してPocketInstallが準備したパッケージです。MicrosoftのコンポーネントにはMicrosoftの条件が適用されます。提供元へのリンクは再配布の許可を意味しません。</string>
+    <string name="download_debian_packages">表示サイズは起動ファイルのみです。PCはその後Debianパッケージをインターネットから取得します。サイズはインストーラーの選択によって異なります。</string>
 </resources>
