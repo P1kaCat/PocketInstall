@@ -1,0 +1,20 @@
+name: Fonctionnalité ou distribution
+description: Proposer une amélioration à PocketInstall
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Proposition
+      description: Quel besoin résout-elle ?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Sources et compatibilité
+      description: Pour une distribution, indique sa page officielle, son architecture et son mode d’installation.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Vérification prévue ou réalisée
+      description: Distingue téléchargement, démarrage et installation complète.

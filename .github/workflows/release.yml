@@ -19,8 +19,8 @@ concurrency:
 
 jobs:
   tested_bundle:
-    # Explicitly requested 0.3.0 preview publishes existing artifacts through its dedicated workflow.
-    if: ${{ !contains(github.event.head_commit.message, '[publish-install-preview]') && !contains(github.event.head_commit.message, '[publish-download]') && !contains(github.event.head_commit.message, '[publish-storage]') && !contains(github.event.head_commit.message, '[publish-auto-size]') && !contains(github.event.head_commit.message, '[publish-image-version]') && !contains(github.event.head_commit.message, '[publish-polish]') }}
+    # Linux/profile updates publish the validated APK through release-linux.yml.
+    if: ${{ !contains(github.event.head_commit.message, '[publish-linux]') }}
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}

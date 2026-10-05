@@ -1,209 +1,62 @@
-## Installation Windows depuis le téléphone
+<p align="center"><img src=".github/assets/pocketinstall-banner.svg" alt="PocketInstall — Un nouveau système. Depuis ton téléphone." width="100%"></p>
+<p align="center"><strong>Installe Windows ou Debian depuis un téléphone Android, via le réseau local.</strong></p>
+<p align="center">Android 8+ · UEFI x64 · PC en Ethernet · Téléphone sans root</p>
+<p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.3.0"><strong>Télécharger la 3.3.0</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Configurer la Freebox</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Proposer une fonctionnalité</a></p>
 
-Le parcours d'installation et le menu Windows 10/11 Home/Pro sont décrits dans [docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md). Le ZIP WinPE ne remplace pas une image Windows officielle. L'installation neuve exige le choix du disque et une confirmation locale d'effacement. Les états de transfert, WinPE, application de Windows et premier boot Windows sont séparés.
+---
 
-# PocketInstall
+## Choisis ton prochain système
 
-Faire démarrer un PC inutilisable depuis un téléphone Android non rooté sur le
-même LAN, via **UEFI HTTP Boot** ou **UEFI PXE IPv4 sous conditions**, sans clé USB ou application
-préinstallée sur le PC.
+| Windows | Linux bureau | Linux serveur |
+|:---|:---|:---|
+| Windows 10 / 11, Home / Pro | Debian 13 avec Xfce | Debian 13 sans interface graphique |
+| Choix de l’édition et options de débloat | Un bureau léger pour le quotidien | Outils standard et SSH |
+| Image Microsoft officielle | Démarrage téléchargé depuis Debian | Même démarrage, profil serveur |
 
-La prochaine livraison est **0.2.0-winpe-preview**. Elle fournit un environnement EFI minimal,
-une application Android Kotlin/Compose, les tests réseau et la préparation de
-la future chaîne WinPE. Elle n'installe ni ne répare encore Windows.
+**Préparer → Installer → suivre la progression.** La bibliothèque affiche les images conservées sur le téléphone et permet de libérer leur espace. Les explications se trouvent dans les boutons **? Aide**, les journaux dans le diagnostic.
 
-## Ce qui fonctionne déjà
+## Commencer
 
-Le boot natif HTTP a été exécuté dans QEMU/OVMF, sans disque invité : DHCP IPv4 →
-HEAD/GET HTTP → EFI en RAM → `PocketInstall boot successful` → arrêt après 30 s.
-L'essai a réussi avec le serveur Python de développement, puis avec **le serveur
-Kotlin partagé par l'application Android**. Le ROM iPXE de la carte virtuelle est
-désactivé : le premier téléchargement est effectué par OVMF.
+1. Installe [PocketInstall-3.3.0.apk](https://github.com/P1kaCat/PocketInstall/releases/download/v3.3.0/PocketInstall-3.3.0.apk) sur ton téléphone.
+2. Dans **Préparer**, sélectionne Windows, Linux bureau ou Linux serveur.
+3. Pour Linux, appuie sur **Télécharger Debian**. Pour Windows, appuie sur **Télécharger WinPE depuis GitHub**, puis prépare l’image Microsoft dans la section Windows. Le ZIP est récupéré et importé automatiquement ; l’accès au dépôt privé peut demander une connexion GitHub.
+4. Connecte le téléphone au Wi-Fi et le PC à la même box en Ethernet. Dans **Installer**, démarre le serveur.
+5. Démarre le PC en **UEFI PXE IPv4**, puis termine les choix d’installation à son écran.
 
-| Élément | État de cette livraison |
-|---|---|
-| Recherche sourcée et architecture | Terminées ; verdict conditionnel. |
-| EFI x64 autonome | Compilé, 4 896 octets, exécuté en VM par HTTP Boot. |
-| Serveur Kotlin | Tests TCP/USB/UDP et boot HTTP natif validé précédemment en VM. |
-| PXE IPv4 | EFI exécuté en VM via TFTP de référence ; TFTP Kotlin testé séparément en UDP. |
-| Android / Compose | APK debug compilé ; signature et binaire embarqué vérifiés. |
-| Téléphone réel + PC physique | **Pas encore testé**. Aucun fabricant certifié. |
-| WinPE / installation Windows | Scripts et architecture préparés ; pas exécutés sous Windows. |
+> La box se configure manuellement **une seule fois** : `snponly.efi` et l’export `pocketinstall.ipxe` dans son dossier TFTP, DHCP annonçant l’IP de la box et `snponly.efi`. Si PocketInstall démarre déjà automatiquement sur ton PC, conserve ces réglages. Réserve l’IP du téléphone.
 
-Les preuves et versions exactes sont dans [docs/VALIDATION.md](docs/VALIDATION.md).
-Un GET reçu par le téléphone ne suffit pas : le succès doit être visible sur le PC.
+Le téléchargement Debian prépare environ 55 Mio de fichiers de démarrage ; le PC télécharge ensuite les paquets sur Internet. Linux ne nécessite pas WinPE. Les fichiers sont vérifiés avant l’activation du serveur.
 
-## Faisabilité et limites
+## Ce que la progression confirme
 
-**MVP viable sur matériel compatible**, sans promesse universelle : UEFI x64 avec
-HTTP Boot avec URI utilisable, ou UEFI PXE IPv4 avec configuration DHCP/TFTP ou
-relais externe, pilote réseau préboot et politique Secure Boot adaptée. Un menu
-PXE seul ne configure pas le serveur. La présence du Wi-Fi dans Windows ne
-prouve pas son support dans le firmware. Le téléphone n'ajoute aucun de ces
-composants au PC et ne remplace pas le DHCP du routeur.
+Un fichier transféré ne prouve pas que le système a démarré. PocketInstall distingue la connexion iPXE, l’envoi des fichiers, le signal de WinPE ou de l’installateur Debian et la fin de l’installation. Le premier démarrage reste à constater sur le PC lorsque son signal n’est pas disponible.
 
-Le POC EFI est **non signé** : Secure Boot doit l'accepter selon la configuration
-de test. Il n'utilise aucun protocole disque et ne modifie aucune variable UEFI.
-Configurer une entrée de boot dans le firmware peut modifier la NVRAM séparément.
+L’installation Windows a été réalisée sur le PC physique de développement. La validation Debian de cette version couvre les routes des deux profils et le démarrage du véritable installateur en VM sans disque ; une installation Linux complète sur matériel physique reste à vérifier. La compatibilité dépend du firmware et des pilotes réseau du PC. Les chargeurs fournis ne sont pas signés pour Secure Boot.
 
-Pour la future installation Windows, le premier parcours sera **PC Ethernet,
-téléphone Wi-Fi**. Microsoft ne prend pas en charge le Wi-Fi général dans WinPE.
-Le boot EFI sans fil et la connexion réseau après WinPE sont deux problèmes
-distincts. Voir [research/FEASIBILITY.md](research/FEASIBILITY.md) et
-[COMPATIBILITY.md](COMPATIBILITY.md).
+## Documentation
 
-## Essayer l'application
+| Pour… | Lire… |
+|:---|:---|
+| Installer Windows et choisir les options | [Installation Windows](docs/WINDOWS_INSTALL.md) |
+| Installer Debian bureau ou serveur | [Installation Linux](docs/LINUX_INSTALL.md) |
+| Préparer DHCP et TFTP | [Guide Freebox](docs/WINPE_FREEBOX.md) |
+| Comprendre le réseau et ses limites | [Compatibilité](COMPATIBILITY.md) · [Sécurité](SECURITY.md) |
+| Ajouter une distribution ou une fonction | [Contribuer](CONTRIBUTING.md) |
+| Consulter les changements | [Releases](https://github.com/P1kaCat/PocketInstall/releases) |
 
-La [release GitHub v0.1.3-poc](https://github.com/P1kaCat/PocketInstall/releases/tag/v0.1.3-poc)
-fournit l'APK Android, le binaire EFI, la licence et leurs hashes.
-[Télécharger l'APK](https://github.com/P1kaCat/PocketInstall/releases/download/v0.1.3-poc/PocketInstall-0.1.3-poc-debug.apk).
-C'est un APK de développement pour Android 8+ ; aucun root ni câble USB requis.
-Si Android refuse la mise à jour du POC 0.1.0 pour signature différente,
-désinstaller cette ancienne version avant d'installer la nouvelle.
+## Développement
 
-1. Installer l'APK sur le téléphone et rejoindre un LAN Wi-Fi privé normal.
-2. Ouvrir PocketInstall, choisir le réseau et démarrer le test EFI.
-3. Noter l'IP et **l'URL exacte**, comprenant la session temporaire :
-   `http://192.168.1.42:8080/<session>/bootx64.efi`.
-4. Sur un PC de test compatible, sélectionner HTTP Boot IPv4 et saisir cette URL.
-5. Constater `PocketInstall boot successful`, puis laisser le PC s'arrêter.
+Le dépôt garde le code Android/Compose, le serveur Kotlin partagé, l’installateur Windows, les outils de préparation et les preuves historiques. Les anciens workflows propres à une version ont été retirés ; les pipelines de construction et validation restent disponibles.
 
-Ce test ne lance aucun formatage. Commencer par la procédure VM, puis suivre
-[docs/TESTING.md](docs/TESTING.md) pour le test physique et le relevé du firmware.
-Les contraintes du téléphone (service, écran éteint, économie d'énergie OEM)
-doivent être validées sur l'appareil réel. Garder l'application visible pour le
-premier essai.
-
-Le serveur est désactivé par défaut, lié à une IPv4 LAN privée, limité au
-sous-réseau, en lecture seule et fermé après 30 min. Le journal indique les fichiers
-demandés et les octets envoyés. HTTP clair et token temporaire ne protègent pas
-contre un attaquant actif du LAN : [SECURITY.md](SECURITY.md).
-
-## Nouveau : PC sans HTTP Boot, UEFI PXE IPv4
-
-Choisir **PXE IPv4 · Ethernet · expérimental** dans l'application. Le PC peut
-charger directement le POC EFI via TFTP ; HTTP Boot dans le BIOS et iPXE ne sont
-pas nécessaires pour ce test. Le téléphone reste sur le même LAN, éventuellement
-en Wi-Fi ; le PC utilise Ethernet.
-
-**Un DHCP avec paramètres de boot configurables ou un relais externe est requis.**
-L'application tente UDP 69, puis 6969 s'il est indisponible, avec un diagnostic.
-Un port 6969 ne permet pas un PXE standard direct. Le relais Linux optionnel
-récupère le POC vérifié par SHA256 depuis le téléphone et fournit proxy-DHCP/TFTP,
-sans remplacer l'attribution d'adresses de la box. Il nécessite un appareil
-supplémentaire et n'est jamais présenté comme un PXE autonome téléphone seul.
-
-Procédure : [docs/PXE.md](docs/PXE.md). Limites et sources :
-[research/PXE.md](research/PXE.md). L'application ne configure pas le routeur,
-n'ouvre pas de DHCP Android et ne transforme pas le téléphone en clé USB bootable.
-
-## Option câble USB
-
-Le mode **Câble USB · expérimental** utilise le partage de connexion USB activé
-manuellement dans Android. Le PC doit reconnaître cette interface réseau dans
-son UEFI et proposer HTTP Boot dessus. Le téléphone ne devient pas une clé USB
-bootable ; aucun matériel physique n'est encore validé pour ce mode.
-La détection et l'URL sont fournies côté Android, sans certification du firmware.
-Voir [docs/USB_CABLE.md](docs/USB_CABLE.md).
-
-Le mode LAN continue de permettre le téléphone sur Wi-Fi ou Ethernet, avec le PC
-sur le même réseau.
-
-## Construire
-
-Linux x64, GCC/binutils et GNU-EFI :
-
-```sh
-make -C boot
-python3 scripts/sync_android_boot.py
-```
-
-Le binaire EFI est déjà inclus dans `android/app/src/main/assets/boot/` pour
-permettre un build Android sans poste Linux.
-
-Android Studio, JDK 17 complet, SDK 36 et Build Tools 36.0.0 : ouvrir `android/`,
-laisser l'IDE configurer le SDK, puis :
+Pour compiler : JDK 17, SDK Android 36 et Build Tools 36.0.0. Le petit EFI de diagnostic se construit avec GNU-EFI (`make -C boot`, puis `python3 scripts/sync_android_boot.py`). Pour Linux, ajoute le `snponly.efi` officiel de la release dans `android/app/src/main/assets/boot/` ; sa source correspondante accompagne la release.
 
 ```sh
 cd android
-./gradlew :server-core:test :app:assembleDebug :app:lintDebug
+bash gradlew :server-core:test :app:assembleDebug :app:lintDebug
 ```
 
-L'APK est dans `android/app/build/outputs/apk/debug/app-debug.apk`.
-AGP 8.13.2, Gradle 8.13 et Kotlin 2.2.21 sont épinglés. Voir
-[android/README.md](android/README.md) pour le service et les permissions LAN.
+## Licence et contributions
 
-## Laboratoire sans disque
+**Utilisation personnelle autorisée. Republication et distribution de versions modifiées interdites sans accord écrit.** Les modifications du code sont autorisées uniquement pour préparer une contribution au dépôt officiel, selon [LICENSE](LICENSE) et [CONTRIBUTING.md](CONTRIBUTING.md). Par exemple : développer un profil de distribution, le tester en privé, puis proposer une pull request.
 
-Installer QEMU, un OVMF **avec HTTP Boot** et `virt-firmware`, puis :
-
-```sh
-python3 scripts/qemu_http_boot.py --code CHEMIN_OVMF_CODE --vars CHEMIN_OVMF_VARS
-```
-
-Le script contrôle téléchargement, message et arrêt ; zéro disque invité.
-Un OVMF de distribution peut omettre HTTP Boot. Le build du firmware de test,
-la source d'aléa virtio-rng et l'essai du serveur Kotlin sont documentés dans
-[docs/TESTING.md](docs/TESTING.md). Ce firmware n'est jamais à flasher sur un PC.
-
-Le laboratoire PXE de référence, également sans disque invité :
-
-```sh
-python3 scripts/qemu_pxe_boot.py
-```
-
-Ce test utilise le TFTP QEMU/libslirp et vérifie le trafic PCAP, l'exécution EFI
-et l'arrêt. Les tests UDP du TFTP Kotlin partagé par l'APK sont séparés ; aucun
-de ces tests ne certifie le démarrage depuis un téléphone réel.
-
-## Chargement WinPE en développement
-
-Le mode **Windows PE** importe un bundle ADK vérifié et le sert par HTTP depuis
-Android. Le parcours Freebox charge iPXE par TFTP puis wimboot et WinPE par HTTP.
-La console reste ouverte sans installation automatique. La procédure et les
-prérequis sont dans [docs/WINPE_FREEBOX.md](docs/WINPE_FREEBOX.md). Aucun fichier
-Microsoft ni chargeur tiers n’est embarqué dans l’APK. La release privée fournit
-un bundle WinPE construit sur GitHub, prêt à importer depuis le téléphone.
-La validation WinPE physique reste à effectuer.
-
-## WinPE et suite du projet
-
-[winpe/README.md](winpe/README.md) décrit l'installation ADK/add-on, le script
-`Build-WinPE.ps1`, les bundles WIM/SDI/BCD/EFI, la chaîne iPXE/wimboot et
-l'extraction vérifiée d'une image Windows officielle. Ces étapes sont préparées
-pour un poste Windows de construction ; aucun binaire Microsoft n'est distribué.
-
-Le futur déploiement sera un plan local : image vérifiée → inventaire/confirmation
-`ERASE` sur le PC → GPT → DISM depuis un fichier local → BCDBoot → WinRE →
-redémarrage vérifié. Aucun exécuteur destructif n'est livré aujourd'hui.
-
-Recovery et profils Clean/Gaming/Dev/Custom viendront ensuite. La conception évite
-la suppression aveugle de composants critiques ; [ARCHITECTURE.md](ARCHITECTURE.md)
-et [ROADMAP.md](ROADMAP.md) définissent ces étapes.
-
-## Organisation et licences
-
-`android/` : application et serveur partagé ; `boot/` : EFI et préparation iPXE ;
-`winpe/` : shell/plan ; `scripts/` : build et tests ; `docs/` : procédures et preuves ;
-`research/` : faisabilité et sources ; `releases/` : binaires du prototype.
-
-Cloner le dépôt puis ouvrir le dossier `android/` dans Android Studio :
-
-```sh
-git clone https://github.com/P1kaCat/PocketInstall.git
-cd PocketInstall
-```
-
-Le dépôt est actuellement privé : utiliser un compte GitHub autorisé pour le
-clonage et les téléchargements. Le bundle Git conservé dans `releases/0.1.0-poc/`
-identifie le commit source ayant servi à construire l'APK. Les caches de build,
-SDK et images Microsoft sont exclus du dépôt.
-
-Code PocketInstall actuel : [licence personnelle personnalisée](LICENSE).
-Modifications privées pour usage personnel autorisées ; redistribution de
-l'application et des versions modifiées interdite sans accord écrit.
-Les droits précédemment accordés sous MIT sur le POC 0.1.0 restent valables.
-Notices GNU-EFI et dépendances Android conservées. Les
-droits de redistribution WinPE/Windows doivent être examinés avant publication
-d'images : [docs/LICENSING.md](docs/LICENSING.md).
-
+Cette licence concerne les éléments originaux de PocketInstall à partir de cette version. Les composants tiers et les versions historiques conservent leurs propres droits. Voir [les licences et notices](docs/LICENSING.md).

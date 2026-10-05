@@ -39,7 +39,7 @@ def prepare(apk: Path, output: Path, version: str, commit: str, aapt: Path) -> N
         raise ValueError("APK application ID or version mismatch")
 
     license_text = (root / "LICENSE").read_bytes()
-    if not license_text.startswith(b"PocketInstall Personal Use License 1.0"):
+    if not license_text.startswith(b"PocketInstall Contribution License 2.0"):
         raise ValueError("Unexpected project license")
     assets = root / "android/app/src/main/assets"
     boot_manifest = json.loads((assets / "boot/manifest.json").read_text())
@@ -116,7 +116,7 @@ def prepare(apk: Path, output: Path, version: str, commit: str, aapt: Path) -> N
         "project": "PocketInstall",
         "version": version,
         "source_commit": commit,
-        "license": "LicenseRef-PocketInstall-Personal-1.0",
+        "license": "LicenseRef-PocketInstall-Contribution-2.0",
         "android": {
             "application_id": "app.pocketinstall",
             "version_code": int(expected_code.group(1)),
@@ -159,3 +159,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

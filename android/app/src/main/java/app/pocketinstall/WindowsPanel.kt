@@ -31,7 +31,8 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var resolver by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf("French") }
     var manual by remember { mutableStateOf(false) }
-    val locked = busy || resolver || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
+    val winpeDownload by WinPeDownloadStore.state.collectAsStateWithLifecycle()
+    val locked = winpeDownload.active || busy || resolver || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     fun update(value: WindowsSelection = selection, install: Boolean = enabled) {
         val valid = install && image?.entries?.count { it.matches(value) } == 1 &&
             runCatching { WindowsDiskSize.selectedGiB(value,checkNotNull(image)) }.isSuccess

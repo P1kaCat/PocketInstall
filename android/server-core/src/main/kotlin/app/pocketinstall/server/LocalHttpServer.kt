@@ -54,7 +54,7 @@ class LocalHttpServer(
             (allowLoopbackForTests && bind.isLoopbackAddress && subnet.prefix >= 8))
         require(resources.isNotEmpty() || resourceFactory != null)
         publicAliases.forEach { (path, target) ->
-            require(path == "/boot.ipxe" && target == "winpe/boot.ipxe")
+            require(path == "/boot.ipxe" && target in setOf("winpe/boot.ipxe", "linux/boot.ipxe"))
         }
         resources.forEach { (name, r) ->
             require(name.matches(Regex("[A-Za-z0-9][A-Za-z0-9._/-]{0,160}")) &&
