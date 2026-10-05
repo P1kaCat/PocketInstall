@@ -1,7 +1,7 @@
 <p align="center"><img src=".github/assets/pocketinstall-banner.svg" alt="PocketInstall — Un nouveau système. Depuis ton téléphone." width="100%"></p>
 <p align="center"><strong>Installe Windows ou Debian depuis un téléphone Android, via le réseau local.</strong></p>
 <p align="center">Android 8+ · UEFI x64 · PC en Ethernet · Téléphone sans root</p>
-<p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.3.0"><strong>Télécharger la 3.3.0</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Configurer la Freebox</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Proposer une fonctionnalité</a></p>
+<p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.4.0"><strong>Télécharger la 3.4.0</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Configurer la Freebox</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Proposer une fonctionnalité</a></p>
 
 ---
 
@@ -17,7 +17,7 @@
 
 ## Commencer
 
-1. Installe [PocketInstall-3.3.0.apk](https://github.com/P1kaCat/PocketInstall/releases/download/v3.3.0/PocketInstall-3.3.0.apk) sur ton téléphone.
+1. Installe [PocketInstall-3.4.0.apk](https://github.com/P1kaCat/PocketInstall/releases/download/v3.4.0/PocketInstall-3.4.0.apk) sur ton téléphone.
 2. Dans **Préparer**, sélectionne Windows, Linux bureau ou Linux serveur.
 3. Pour Linux, appuie sur **Télécharger Debian**. Pour Windows, appuie sur **Télécharger WinPE depuis GitHub**, puis prépare l’image Microsoft dans la section Windows. Le ZIP est récupéré et importé automatiquement ; l’accès au dépôt privé peut demander une connexion GitHub.
 4. Connecte le téléphone au Wi-Fi et le PC à la même box en Ethernet. Dans **Installer**, démarre le serveur.

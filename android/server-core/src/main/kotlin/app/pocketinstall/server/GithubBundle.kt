@@ -18,7 +18,7 @@ object GithubBundle {
             require(allowed(url)) { "Adresse GitHub refusée" }
             val conn=java.net.URL(url).openConnection() as HttpURLConnection
             connection(conn); conn.instanceFollowRedirects=false;conn.connectTimeout=15000;conn.readTimeout=20000
-            conn.setRequestProperty("User-Agent","PocketInstall/3.3.0")
+            conn.setRequestProperty("User-Agent","PocketInstall/3.4.0")
             if(URI(url).host=="github.com" && cookie.isNotBlank())conn.setRequestProperty("Cookie",cookie)
             try {
                 if(cancelled())throw InterruptedException()

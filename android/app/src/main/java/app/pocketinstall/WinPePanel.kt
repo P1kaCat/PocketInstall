@@ -60,9 +60,9 @@ fun WinPePanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit, onReady: (Boole
         }
     }
     if(winpeDownload.loginRequired) GithubDownloadDialog(close={WinPeDownloadService.dismissLogin()}) { cookie -> WinPeDownloadService.start(context,cookie) }
-    PocketSection("Environnement PC", "WinPE démarre le PC et prépare l’installation. Le bouton Télécharger récupère le ZIP officiel sur GitHub puis l’importe automatiquement. Si le dépôt est privé, connecte ton compte GitHub ayant accès. Les fichiers, leur intégrité et les routes HTTP sont vérifiés avant de rendre l’environnement disponible. L’ISO Windows est préparée séparément, dans la section Windows.") {
-        if(busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Vérification en cours…") }
-        else Text(if(ready) "WinPE disponible" else "WinPE à importer",style=androidx.compose.material3.MaterialTheme.typography.titleMedium)
+    PocketSection(context.getString(R.string.pc_environment), context.getString(R.string.environment_help)) {
+        if(busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(context.getString(R.string.checking)) }
+        else Text(if(ready) context.getString(R.string.winpe_ready) else context.getString(R.string.winpe_import),style=androidx.compose.material3.MaterialTheme.typography.titleMedium)
         if(message.contains("refusé") || message.contains("indisponible") || message.startsWith("Export impossible")) PocketNote(message,error=true)
         if(winpeDownload.active) {
             Text(winpeDownload.message,style=androidx.compose.material3.MaterialTheme.typography.bodySmall)
@@ -70,7 +70,7 @@ fun WinPePanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit, onReady: (Boole
         } else if(winpeDownload.message.isNotEmpty()) Text(winpeDownload.message,style=androidx.compose.material3.MaterialTheme.typography.bodySmall)
         if(!active) Button(onClick={WinPeDownloadService.start(context)},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(ready) "Actualiser WinPE depuis GitHub" else "Télécharger WinPE depuis GitHub")}
         if(!active) OutlinedButton(onClick={picker.launch(arrayOf("application/zip","application/octet-stream","application/x-zip-compressed"))},enabled=!busy,modifier=Modifier.fillMaxWidth()) {
-            Text(if(ready) "Remplacer le ZIP WinPE" else "Importer le ZIP WinPE")
+            Text(if(ready) context.getString(R.string.replace_winpe) else context.getString(R.string.import_winpe))
         }
     }
 }

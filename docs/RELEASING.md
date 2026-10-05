@@ -1,65 +1,22 @@
-# Publier une release APK
+# Publication et validation
 
-Le workflow `.github/workflows/release.yml` crée une vraie release GitHub, distincte
-du dossier de binaires historiques versionné dans le dépôt.
+La version 3.4.0 utilise `.github/workflows/release-linux.yml`. Une branche `codex/linux-install` construit l’APK, vérifie les routes Linux et WinPE et conserve la preuve déjà obtenue de démarrage Debian dans une VM sans disque après vérification que le code Linux est identique. Le job conserve les rapports et journaux, puis l’APK, le chargeur iPXE et sa source dans un artifact.
 
-## Déclenchement
+Après validation, le merge sur `main` portant `[publish-linux]` publie cet APK sans le recompiler. Le workflow exige le même arbre Git que celui du build réussi, vérifie les hashes et crée la prerelease. Le bundle WinPE existant reste disponible dans la 3.2.0 et peut être importé automatiquement par l’application ; il n’est pas nécessaire pour Linux.
 
-Sur `main`, une modification du numéro de version Android, du workflow ou des
-notes de release déclenche le build. Un lancement manuel est également possible
-depuis l'onglet Actions. Le workflow n'est pas exécuté sur une pull request ni
-dans un autre dépôt.
+Les anciens workflows propres à une version ont été retirés. `build-winpe.yml`, `validate.yml` et `release.yml` conservent le parcours de reconstruction et de validation Windows pour les futures modifications qui le nécessitent. Le marqueur de publication Linux évite de relancer ces laboratoires pour la présente mise à jour.
 
-1. Augmenter `versionCode` et `versionName` dans `android/app/build.gradle.kts`.
-2. Créer `releases/<versionName>/NOTES.md`.
-3. Vérifier les changements et pousser sur `main`.
-4. Attendre la fin du workflow **Release APK**.
-5. Contrôler les assets de `releases/tag/v<versionName>`.
+## Préparer une nouvelle version
 
-Le runner utilise JDK 17, SDK 36 et Build Tools 36.0.0. Il exécute les tests
-`server-core`, assemble l'APK debug et lance lint. Avant publication, il vérifie
-la signature de l'APK, l'identité/version Android, le binaire EFI embarqué, la
-présence de la licence personnelle identique à `LICENSE` et les notices tierces.
-`scripts/verify_release.py` produit le manifeste et les hashes.
+1. Augmente `versionCode` et `versionName` dans `android/app/build.gradle.kts`.
+2. Écris `releases/<version>/NOTES.md` et adapte le workflow de publication si son numéro est explicite.
+3. Compile avec JDK 17, SDK Android 36 et Build Tools 36.0.0. Vérifie les comportements modifiés et distingue transfert, démarrage et installation complète.
+4. Publie les fichiers correspondant au code validé, leurs SHA-256 et les sources/notices exigées par les composants tiers.
 
-La release est marquée **prerelease** tant que PocketInstall reste un POC.
-Elle contient l'APK, `bootx64.efi`, `LICENSE.txt`, les notices tierces,
-`release.json` et `SHA256SUMS`. Le tag pointe vers le commit réellement construit.
+Le téléchargement Linux vérifie les SHA-256 du miroir HTTPS Debian. Le ZIP WinPE téléchargé automatiquement est épinglé au SHA-256 de la release officielle 3.2.0 ; si ce bundle change dans une future version, il faut actualiser ensemble son URL et son empreinte.
 
-À partir de 0.1.3, la CI reconstruit aussi l'EFI et compare les octets à l'asset,
-vérifie le relais/dnsmasq et exécute PXE natif dans QEMU/OVMF sans disque. Le
-préparateur de release exige un résultat réussi pour le hash EFI courant et
-au moins 30 tests de serveur, sans échec/erreur/skip. Les tests TFTP Kotlin et
-la VM TFTP QEMU/libslirp sont deux validations distinctes.
+## Signature et données
 
-Assets supplémentaires : `PXE-QEMU-result.json`, `PXE-QEMU-serial.txt`,
-`PXE-QEMU-network.pcap`, `SERVER-TESTS.xml` et `PXE-relay-tools.zip`. Le ZIP
-contient les sources du relais, son guide, la licence et le manifeste de hash,
-sans binaire Microsoft/iPXE. Décompresser puis exécuter la préparation comme
-dans `docs/PXE.md` ; elle récupère l'EFI depuis le téléphone.
+Les APK actuels utilisent une signature debug de CI, sans promesse de clé identique entre les builds. Une installation Android peut donc refuser une mise à jour pour signature différente. Les images Windows, WinPE et Debian sont conservées dans les fichiers privés de l’application : une désinstallation les supprime. La bibliothèque permet de les gérer sans désinstaller l’application.
 
-Une version déjà publiée n'est jamais remplacée. Une relance du même commit
-conserve la release existante ; un autre commit doit augmenter la version.
-
-## Signature Android
-
-Ces APK utilisent une clé **debug**, générée sur le runner. Les clés peuvent
-différer entre builds et avec le POC historique. Android peut alors exiger de
-désinstaller l'ancienne application ; PocketInstall n'y conserve aujourd'hui
-aucune donnée utilisateur persistante.
-
-Avant une version de production, créer une clé de signature durable, la conserver
-hors Git dans un stockage protégé et configurer les secrets de signature.
-Ne jamais publier de keystore privé ni le mot de passe associé. Le workflow
-actuel ne prétend pas fournir cette signature de production.
-
-## Permissions
-
-Le workflow utilise le `GITHUB_TOKEN` temporaire fourni par GitHub, avec
-`contents: write` uniquement pour ce job de publication sur `main`.
-Il ne demande ni PAT personnel ni accès à d'autres dépôts. Les actions utilisées
-sont épinglées à des commits. Aucun binaire Microsoft n'est inclus.
-
-Références :
-- https://docs.github.com/en/actions/tutorials/authenticate-with-github_token
-- https://cli.github.com/manual/gh_release_create
+Une distribution de production doit utiliser une clé de signature durable conservée hors Git. Le workflow de publication emploie le token GitHub temporaire et `contents: write` uniquement dans le job de publication. Les actions sont épinglées. Aucune image Windows complète n’est intégrée à l’APK.

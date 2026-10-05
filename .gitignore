@@ -24,3 +24,8 @@ lab-pxe-output/
 lab-dnsmasq.conf
 pxe-relay/
 release-out/
+
+
+# Temporary Linux validation/download outputs
+linux-lab/
+compiled-loaders/

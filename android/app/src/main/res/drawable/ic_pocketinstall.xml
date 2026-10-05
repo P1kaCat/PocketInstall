@@ -1,8 +1,5 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#08141F" android:pathData="M0,0h48v48h-48z" />
-    <path android:fillColor="#67D9EE" android:pathData="M14,7h20v34h-20z" />
-    <path android:fillColor="#112537" android:pathData="M17,11h14v24h-14z" />
-    <path android:fillColor="#67D9EE" android:pathData="M22,14h4v9h4l-6,7 -6,-7h4z" />
-    <path android:fillColor="#112537" android:pathData="M21,37h6v2h-6z" />
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Vector redraw of the approved pocket / negative-space download mark. -->
+    <path android:fillColor="#073D99" android:pathData="M31,29 L47,29 Q49,29 49,31 L49,46 L41,46 Q39,46 40.5,48 L52.5,60 Q54,61.5 55.5,60 L67.5,48 Q69,46 67,46 L59,46 L59,31 Q59,29 61,29 L77,29 Q82,29 82,34 L82,60 Q82,64 78.5,66 L58,78 Q54,80.5 50,78 L29.5,66 Q26,64 26,60 L26,34 Q26,29 31,29 Z" />
 </vector>
