@@ -1,7 +1,7 @@
 name: PocketInstall 3.4.0 Linux
 on:
   push:
-    branches: [main, codex/linux-install]
+    branches: [main, feature/linux-install]
 permissions:
   contents: read
   actions: read
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/linux-install'
+    if: github.ref == 'refs/heads/feature/linux-install'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -105,7 +105,7 @@ jobs:
           def api(path):
               return json.loads(subprocess.check_output(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/'+path]))
           tree=api('git/commits/'+os.environ['GITHUB_SHA'])['tree']['sha']
-          for run in api('actions/runs?branch=codex%2Flinux-install&per_page=15')['workflow_runs']:
+          for run in api('actions/runs?branch=feature%2Flinux-install&per_page=15')['workflow_runs']:
               if run['path']!='.github/workflows/release-linux.yml' or run['conclusion']!='success': continue
               if api('git/commits/'+run['head_sha'])['tree']['sha']!=tree: continue
               with open(os.environ['GITHUB_OUTPUT'],'a') as out: out.write('run='+str(run['id'])+'\n')

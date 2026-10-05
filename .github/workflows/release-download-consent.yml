@@ -1,7 +1,7 @@
 name: PocketInstall download consent
 on:
   push:
-    branches: [main, codex/download-consent]
+    branches: [main, feature/download-consent]
 permissions:
   contents: read
   actions: read
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/download-consent'
+    if: github.ref == 'refs/heads/feature/download-consent'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -81,7 +81,7 @@ jobs:
           def api(path):
               return json.loads(subprocess.check_output(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/'+path]))
           tree=api('git/commits/'+os.environ['GITHUB_SHA'])['tree']['sha']
-          for run in api('actions/runs?branch=codex%2Fdownload-consent&per_page=15')['workflow_runs']:
+          for run in api('actions/runs?branch=feature%2Fdownload-consent&per_page=15')['workflow_runs']:
               if run['path']!='.github/workflows/release-download-consent.yml' or run['conclusion']!='success': continue
               if api('git/commits/'+run['head_sha'])['tree']['sha']!=tree: continue
               with open(os.environ['GITHUB_OUTPUT'],'a') as out: out.write('run='+str(run['id'])+'\n')
