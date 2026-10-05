@@ -7,6 +7,7 @@ import java.net.URI
 class GithubLoginRequired : Exception("Connexion GitHub nécessaire pour accéder au dépôt privé")
 object GithubBundle {
     const val URL = "https://github.com/P1kaCat/PocketInstall/releases/download/v3.2.0/PocketInstall-WinPE-x64.zip"
+    const val SHA256 = "c2efce1840b197c08718b3ef76d0c43f2092f385a0f5e2f0db8aa7dd5ede2920"
     fun allowed(url: String): Boolean = runCatching {
         val uri=URI(url)
         uri.scheme=="https" && uri.userInfo==null && (uri.port==-1 || uri.port==443) && uri.host in setOf("github.com","release-assets.githubusercontent.com","objects.githubusercontent.com")
@@ -41,6 +42,7 @@ object GithubBundle {
                         require(count==total) { "ZIP incomplet" }
                     } }
                     target.inputStream().use { require(it.read()==0x50 && it.read()==0x4b) { "GitHub n’a pas fourni un ZIP" } }
+                    require(LinuxInstaller.digest(target)==SHA256) { "L’empreinte du ZIP GitHub ne correspond pas à la release officielle" }
                     return
                 }
             } finally { conn.disconnect() }

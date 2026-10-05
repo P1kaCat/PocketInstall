@@ -17,9 +17,15 @@ Bundled EFI contains GNU-EFI startup/relocation code; BSD-style license.
 See assets/licenses/GNU-EFI.txt and boot/THIRD_PARTY_NOTICES.txt.
 
 JUnit 4 (test dependency only) is Eclipse Public License 1.0.
-No Microsoft binaries, iPXE or wimboot are included in the APK.
+No Microsoft binaries or wimboot are included in the APK.
+
+snponly.efi is the separate iPXE boot program, under its own GPL terms.
+See assets/licenses/iPXE.txt and the matching iPXE-source.tar.gz supplied
+with this release. PocketInstall restrictions do not restrict rights to iPXE.
+https://ipxe.org/licensing
 
 Skia path code in the AndroidX graphics-path native library
 Copyright (c) 2011 Google Inc.; BSD 3-clause license.
 https://github.com/google/skia
 See assets/licenses/Skia-BSD.txt.
+
