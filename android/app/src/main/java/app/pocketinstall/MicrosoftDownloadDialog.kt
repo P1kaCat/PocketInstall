@@ -96,11 +96,11 @@ fun MicrosoftDownloadDialog(version: WindowsVersion, language: String, close: ()
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(12.dp),shape=MaterialTheme.shapes.large) {
             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("Téléchargement Microsoft",style=MaterialTheme.typography.titleLarge)
+                Text(context.getString(R.string.download_title),style=MaterialTheme.typography.titleLarge)
                 Text(message)
                 if(running) LinearProgressIndicator(Modifier.fillMaxWidth())
                 AndroidView(factory={view},modifier=Modifier.fillMaxWidth().weight(1f))
-                TextButton(onClick=close) { Text("Annuler") }
+                TextButton(onClick=close) { Text(context.getString(R.string.cancel)) }
             }
         }
     }

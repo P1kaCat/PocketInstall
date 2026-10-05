@@ -11,7 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
@@ -71,7 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pocketinstall.server.RequestPhase
 import kotlinx.coroutines.flow.update
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private var pendingNetwork = ""
     private var pendingUsb = false
     private var pendingPxe = false
@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PocketTheme {
+              PocketLaunch {
                 val state by ServerStore.state.collectAsStateWithLifecycle()
                 var usbMode by remember { mutableStateOf(state.usbMode) }
                 var pxeMode by remember { mutableStateOf(state.pxeMode) }
@@ -119,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     { runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
                         .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } },
                     { choice -> pendingNetwork = chosen; pendingUsb = false; pendingPxe = false; pendingWinPe = choice == InstallerChoice.WINDOWS; pendingLinux = choice.linux?.name; requestStart() })
+              }
             }
         }
     }
@@ -166,10 +168,16 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
     var diagnostic by rememberSaveable { mutableStateOf(false) }
     var setup by rememberSaveable { mutableStateOf(false) }
     var licenseOpen by rememberSaveable { mutableStateOf(false) }
+    var languageOpen by rememberSaveable { mutableStateOf(false) }
     var exportMessage by remember { mutableStateOf("") }
     val active=state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     val busy=state.importingWinPe || download.active || linuxDownload.active || winpeDownload.active || linuxVerifying
     val installerReady=if(choice.linux!=null)linuxReady else ready
+    if (languageOpen) AlertDialog(onDismissRequest = { languageOpen = false },
+        text = { LanguagePicker(firstLaunch = false, onChosen = { languageOpen = false }) },
+        confirmButton = {}, dismissButton = {
+            TextButton(onClick = { languageOpen = false }) { Text(androidx.compose.ui.res.stringResource(R.string.cancel)) }
+        })
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if(uri!=null && state.ip!="—") scope.launch {
             exportMessage=runCatching { withContext(Dispatchers.IO) {
@@ -178,12 +186,12 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
             }; "Configuration enregistrée" }.getOrElse {"Export impossible : ${it.message}"}
         }
     }
-    if(licenseOpen) AlertDialog(onDismissRequest={licenseOpen=false},title={Text("Licence PocketInstall")},
+    if(licenseOpen) AlertDialog(onDismissRequest={licenseOpen=false},title={Text(context.getString(R.string.license_title))},
         text={Text(remember {context.assets.open("licenses/PocketInstall-Personal.txt").bufferedReader().use{it.readText()}},Modifier.heightIn(max=420.dp).verticalScroll(rememberScrollState()))},
-        confirmButton={TextButton(onClick={licenseOpen=false}){Text("Fermer")}})
+        confirmButton={TextButton(onClick={licenseOpen=false}){Text(context.getString(R.string.close))}})
     Scaffold(contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
         NavigationBar {
-            listOf("Préparer","Installer","Bibliothèque","Aide").forEachIndexed { index,label ->
+            listOf(context.getString(R.string.prepare),context.getString(R.string.install),context.getString(R.string.library),context.getString(R.string.help)).forEachIndexed { index,label ->
                 NavigationBarItem(selected=tab==index,onClick={tab=index},enabled=!busy,
                     icon={Icon(painterResource(listOf(R.drawable.ic_prepare,R.drawable.ic_install,R.drawable.ic_library,R.drawable.ic_help)[index]),contentDescription=null)},label={Text(label)})
             }
@@ -192,8 +200,13 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
         Box(Modifier.fillMaxSize().padding(padding),contentAlignment=Alignment.TopCenter) {
             LazyColumn(Modifier.widthIn(max=680.dp).fillMaxWidth(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                 item {
-                    Text("PocketInstall",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
-                    Text(when(tab){0->"Choisis ton prochain système.";1->"Connecte le PC. On s’occupe du reste.";2->"Tes systèmes, à portée de main.";else->"Un coup de main, au bon endroit."},style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                        Surface(color=Color.White,shape=MaterialTheme.shapes.small) {
+                            androidx.compose.foundation.Image(painterResource(R.drawable.ic_pocketinstall), null, Modifier.size(56.dp))
+                        }
+                        Text("PocketInstall",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
+                    }
+                    Text(when(tab){0->context.getString(R.string.tagline_prepare);1->context.getString(R.string.tagline_install);2->context.getString(R.string.tagline_library);else->context.getString(R.string.tagline_help)},style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if(tab==0) {
                     item {PocketSection("Système", "Windows conserve ses options habituelles. Linux bureau installe Debian avec Xfce. Linux serveur installe Debian sans bureau graphique, avec SSH. Ces deux choix Linux partagent les mêmes fichiers de démarrage.") {
@@ -206,54 +219,57 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                 }
                     }
                 if(tab==1) {
-                    item {PocketSection("Connexion", "Téléphone sur le Wi-Fi de la box, PC branché en Ethernet. Sélectionne UEFI PXE IPv4 au démarrage du PC. Garde le téléphone connecté au même réseau et le serveur démarré jusqu’à la fin du transfert. La Freebox doit être configurée une fois dans Aide.") {
+                    item {PocketSection(context.getString(R.string.connection), context.getString(R.string.connection_help)) {
                         if(!active) {
-                            if(networks.isEmpty()) PocketNote("Connecte le téléphone au Wi-Fi de ta box.")
+                            if(networks.isEmpty()) PocketNote(context.getString(R.string.connect_wifi))
                             networks.forEach {candidate->
                                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                                     RadioButton(selected=candidate.id==chosen,onClick={onChoose(candidate.id)})
                                     Column(Modifier.weight(1f)) {Text(candidate.label.substringBefore(" ·"));Text(candidate.address.hostAddress.orEmpty(),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                                 }
                             }
-                            TextButton(onClick=onRefresh,enabled=!busy){Text("Actualiser les réseaux")}
-                        } else Text("Serveur sur ${state.ip}",style=MaterialTheme.typography.bodyMedium)
-                        if(active) OutlinedButton(onClick=onStop,modifier=Modifier.fillMaxWidth()){Text("Arrêter le serveur")}
-                        else Button(onClick={onWinPe(choice)},enabled=installerReady && !busy && !selectedUsb && networks.any{it.id==chosen},modifier=Modifier.fillMaxWidth()){Text("Démarrer le serveur")}
-                        if(!active && !installerReady) Text(if(choice.linux!=null) "Télécharge Debian dans Préparer pour démarrer." else "Vérifie ou importe le ZIP WinPE dans Préparer pour démarrer.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick=onRefresh,enabled=!busy){Text(context.getString(R.string.refresh_networks))}
+                        } else Text(context.getString(R.string.server_address,state.ip),style=MaterialTheme.typography.bodyMedium)
+                        if(active) OutlinedButton(onClick=onStop,modifier=Modifier.fillMaxWidth()){Text(context.getString(R.string.stop_server))}
+                        else Button(onClick={onWinPe(choice)},enabled=installerReady && !busy && !selectedUsb && networks.any{it.id==chosen},modifier=Modifier.fillMaxWidth()){Text(context.getString(R.string.start_server))}
+                        if(!active && !installerReady) Text(if(choice.linux!=null) context.getString(R.string.linux_required) else context.getString(R.string.winpe_required),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }}
                     item {if(state.linuxProfile!=null || (!active && choice.linux!=null))LinuxInstallationProgress(state) else InstallationProgress(state)}
                 }
                 if(tab==2) item {LibraryPanel(busy || active) {ready=false;linuxReady=false;libraryRevision++}}
                 if(tab==3) {
-                    item {PocketSection("Configuration Freebox", "Cette configuration reste manuelle. PocketInstall ne modifie aucun réglage de ta box. Réserve une IP au téléphone : sinon le fichier de configuration devra être exporté de nouveau.") {
-                        Text("À faire une seule fois",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        OutlinedButton(onClick={setup=!setup},modifier=Modifier.fillMaxWidth()){Text(if(setup) "Fermer le guide" else "Configurer ma Freebox")}
+                    item { TextButton(onClick = { languageOpen = true }, enabled = !busy) {
+                        Text(androidx.compose.ui.res.stringResource(R.string.language_title) + " · " + AppLanguages.current(context).displayName)
+                    } }
+                    item {PocketSection(context.getString(R.string.freebox), context.getString(R.string.freebox_help)) {
+                        Text(context.getString(R.string.once),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick={setup=!setup},modifier=Modifier.fillMaxWidth()){Text(if(setup) context.getString(R.string.close_guide) else context.getString(R.string.configure_freebox))}
                         if(setup) {
-                            Text("1. Démarre le serveur dans Installer. Réserve l’IP du téléphone dans les baux DHCP de la Freebox.")
-                            Button(onClick={export.launch("pocketinstall.ipxe")},enabled=state.status==ServerStatus.RUNNING){Text("Enregistrer pocketinstall.ipxe")}
-                            Text("2. Place ce fichier et snponly.efi dans le même dossier TFTP de la Freebox. Active le serveur TFTP sur ce dossier.")
-                            Text("3. Dans DHCP : serveur TFTP = IP de la Freebox ; fichier de démarrage = snponly.efi. Applique les réglages.")
-                            if(state.loaderUrl.isNotEmpty()) TextButton(onClick={context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Chargeur",state.loaderUrl))}){Text("Copier l’URL de snponly.efi")}
-                            Text("Pour l’attente silencieuse de cette version, remplace seulement pocketinstall.ipxe par le nouvel export. Les autres réglages restent identiques.",style=MaterialTheme.typography.bodySmall)
+                            Text(context.getString(R.string.freebox_step1))
+                            Button(onClick={export.launch("pocketinstall.ipxe")},enabled=state.status==ServerStatus.RUNNING){Text(context.getString(R.string.save_ipxe))}
+                            Text(context.getString(R.string.freebox_step2))
+                            Text(context.getString(R.string.freebox_step3))
+                            if(state.loaderUrl.isNotEmpty()) TextButton(onClick={context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Chargeur",state.loaderUrl))}){Text(context.getString(R.string.copy_loader))}
+                            Text(context.getString(R.string.freebox_update),style=MaterialTheme.typography.bodySmall)
                             if(exportMessage.isNotEmpty()) PocketNote(exportMessage)
                         }
                     }}
-                    item {PocketSection("Diagnostic", "Les adresses et journaux servent au dépannage. Une requête HTTP ne prouve pas le démarrage : WinPE et Windows doivent transmettre leur propre confirmation. Les commandes manuelles sont réservées aux tests.") {
-                        OutlinedButton(onClick={diagnostic=!diagnostic},modifier=Modifier.fillMaxWidth()){Text(if(diagnostic) "Masquer les détails" else "Afficher les détails techniques")}
+                    item {PocketSection(context.getString(R.string.diagnostic), context.getString(R.string.diagnostic_help)) {
+                        OutlinedButton(onClick={diagnostic=!diagnostic},modifier=Modifier.fillMaxWidth()){Text(if(diagnostic) context.getString(R.string.hide_details) else context.getString(R.string.show_details))}
                         if(diagnostic) {
                             Text(state.message)
                             Text("IP ${state.ip} · ${state.requests} requêtes · ${state.clientsSeen} clients",fontFamily=FontFamily.Monospace,style=MaterialTheme.typography.bodySmall)
-                            if(state.url.isNotEmpty()){Text(state.url,fontFamily=FontFamily.Monospace,style=MaterialTheme.typography.bodySmall);TextButton(onClick=onCopy){Text("Copier l’URL")}}
+                            if(state.url.isNotEmpty()){Text(state.url,fontFamily=FontFamily.Monospace,style=MaterialTheme.typography.bodySmall);TextButton(onClick=onCopy){Text(context.getString(R.string.copy_url))}}
                             if(state.tftpMessage.isNotEmpty()) Text(state.tftpMessage,style=MaterialTheme.typography.bodySmall)
                             if(state.installMessage.isNotEmpty()) Text(state.installMessage)
                             if(!active) {
-                                PocketCheck("Test réseau USB expérimental",selectedUsb,true,onMode)
-                                PocketCheck("Test EFI en PXE",selectedPxe,!selectedUsb,onPxe)
-                                if(selectedUsb) TextButton(onClick=onSettings){Text("Paramètres réseau Android")}
-                                OutlinedButton(onClick=onStart,enabled=!busy && networks.any{it.id==chosen}){Text("Lancer le test EFI")}
+                                PocketCheck(context.getString(R.string.usb_test),selectedUsb,true,onMode)
+                                PocketCheck(context.getString(R.string.pxe_test),selectedPxe,!selectedUsb,onPxe)
+                                if(selectedUsb) TextButton(onClick=onSettings){Text(context.getString(R.string.android_network))}
+                                OutlinedButton(onClick=onStart,enabled=!busy && networks.any{it.id==chosen}){Text(context.getString(R.string.start_efi))}
                             }
-                            TextButton(onClick=onCopyRelay,enabled=state.url.isNotEmpty()){Text("Copier la commande du relais Linux")}
-                            TextButton(onClick={context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Diagnostic iPXE","dhcp\nchain ${state.url}"))},enabled=state.url.isNotEmpty()){Text("Copier les commandes iPXE")}
+                            TextButton(onClick=onCopyRelay,enabled=state.url.isNotEmpty()){Text(context.getString(R.string.copy_relay))}
+                            TextButton(onClick={context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Diagnostic iPXE","dhcp\nchain ${state.url}"))},enabled=state.url.isNotEmpty()){Text(context.getString(R.string.copy_ipxe))}
                         }
                     }}
                     if(diagnostic) {
@@ -262,7 +278,7 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
                         }
                         items(state.tftpEvents.takeLast(10).reversed()) {event->Text("TFTP ${event.resource} · ${event.result}",fontFamily=FontFamily.Monospace,style=MaterialTheme.typography.bodySmall)}
                     }
-                    item {TextButton(onClick={licenseOpen=true}){Text("Licence · PocketInstall ${BuildConfig.VERSION_NAME}")}}
+                    item {TextButton(onClick={licenseOpen=true}){Text(context.getString(R.string.license_version, BuildConfig.VERSION_NAME))}}
                 }
             }
         }
@@ -271,9 +287,10 @@ private fun PocketScreen(state: ServerSnapshot, networks: List<LanCandidate>, ch
 
 @Composable
 private fun InstallationProgress(state: ServerSnapshot) {
+    val context = LocalContext.current
     val active=state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     val phase=state.winPeProgress.stage
-    val steps=listOf("Serveur démarré","PC connecté","Chargement WinPE","WinPE démarré","Installation Windows","Premier démarrage")
+    val steps=listOf(context.getString(R.string.server_started),context.getString(R.string.pc_connected),context.getString(R.string.loading_winpe),context.getString(R.string.winpe_started),context.getString(R.string.installing_windows),context.getString(R.string.first_boot))
     val install=state.installMessage
     val current=when {
         !active || state.status==ServerStatus.STARTING->-1
@@ -286,7 +303,7 @@ private fun InstallationProgress(state: ServerSnapshot) {
         else->0
     }
     val error=state.status==ServerStatus.ERROR || install.startsWith("Installation interrompue") || state.winPeProgress.error.isNotEmpty()
-    PocketSection("Progression", "La progression suit les signaux réels du PC. « WinPE envoyé » signifie que les fichiers ont été transférés, pas que WinPE a démarré. Le premier démarrage de Windows reste à vérifier à l’écran du PC si son signal ne parvient pas au téléphone.") {
+    PocketSection(context.getString(R.string.progress), context.getString(R.string.progress_help)) {
         steps.forEachIndexed {index,label->
             Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 Surface(color=if(index<=current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,shape=androidx.compose.foundation.shape.CircleShape,modifier=Modifier.size(32.dp)) {
@@ -296,17 +313,17 @@ private fun InstallationProgress(state: ServerSnapshot) {
             }
         }
         val status=when {
-            state.status==ServerStatus.ERROR->"Le serveur n’a pas pu démarrer. Consulte Aide > Diagnostic."
-            state.status==ServerStatus.STARTING->"Vérification du serveur…"
-            !active->"Démarre le serveur pour attendre le PC."
+            state.status==ServerStatus.ERROR->context.getString(R.string.server_failed)
+            state.status==ServerStatus.STARTING->context.getString(R.string.checking_server)
+            !active->context.getString(R.string.start_wait)
             install.isNotEmpty()->install.substringBefore('\n')
-            else->phase.label
+            else->context.getString(when(phase) { WinPeStage.WAITING -> R.string.waiting_pc; WinPeStage.DETECTED -> R.string.pc_detected; WinPeStage.IPXE -> R.string.ipxe_connected; WinPeStage.LOADING -> R.string.loading_winpe; WinPeStage.SENT -> R.string.winpe_sent; WinPeStage.STARTED -> R.string.winpe_confirmed })
         }
         PocketNote(status,error=error)
         if(state.winPeProgress.wimTotal>0 && phase<WinPeStage.STARTED) {
             val progress=(state.winPeProgress.wimBytes.toFloat()/state.winPeProgress.wimTotal).coerceIn(0f,1f)
             LinearProgressIndicator(progress={progress},modifier=Modifier.fillMaxWidth())
-            Text("Envoi WinPE · ${(progress*100).toInt()} %",style=MaterialTheme.typography.labelLarge)
+            Text(context.getString(R.string.sending_winpe, (progress*100).toInt()),style=MaterialTheme.typography.labelLarge)
         }
         if(state.pcHardware.isNotEmpty()) Text(state.pcHardware.substringBefore(" · TPM"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(state.winPeProgress.error.isNotEmpty()) PocketNote(state.winPeProgress.error,error=true)

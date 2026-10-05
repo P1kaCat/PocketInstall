@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +55,7 @@ fun PocketTheme(content: @Composable () -> Unit) {
 
 @Composable
 fun HelpButton(title: String, explanation: String) {
+    val context = LocalContext.current
     var open by rememberSaveable { mutableStateOf(false) }
     TextButton(onClick={open=true}, modifier=Modifier.heightIn(min=48.dp)
         .semantics { contentDescription="Aide : $title. Appuyer pour en savoir plus." },
@@ -61,11 +63,11 @@ fun HelpButton(title: String, explanation: String) {
         Box(Modifier.size(24.dp).border(1.dp,MaterialTheme.colorScheme.primary,CircleShape),contentAlignment=Alignment.Center) {
             Text("?",style=MaterialTheme.typography.labelLarge)
         }
-        Spacer(Modifier.width(6.dp)); Text("Aide",style=MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.width(6.dp)); Text(context.getString(R.string.help),style=MaterialTheme.typography.labelLarge)
     }
     if(open) AlertDialog(onDismissRequest={open=false},title={Text(title)},
         text={Text(explanation,Modifier.heightIn(max=420.dp).verticalScroll(rememberScrollState()),style=MaterialTheme.typography.bodyMedium)},
-        confirmButton={TextButton(onClick={open=false}){Text("Compris")}})
+        confirmButton={TextButton(onClick={open=false}){Text(context.getString(R.string.understood))}})
 }
 
 @Composable

@@ -24,7 +24,7 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var enabled by remember { mutableStateOf(WindowsStorage.enabled(context)) }
     var image by remember { mutableStateOf<WindowsImageInfo?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Importe une image d'installation Windows officielle.") }
+    var message by remember { mutableStateOf(context.getString(R.string.image_prompt)) }
     var hash by remember { mutableStateOf("") }
     var trusted by remember { mutableStateOf(false) }
     val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
@@ -73,67 +73,67 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     val sizing = image?.let { runCatching { WindowsDiskSize.selectedGiB(selection,it) } }
     val valid = match.size == 1 && sizing?.isSuccess == true
     Column(verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        PocketSection("01  Windows", "Choisis la version et l’édition correspondant à ta licence. L’image Microsoft contient Home et Pro. Windows 10 a atteint la fin de son support standard : vérifie ta couverture de mises à jour.") {
+        PocketSection(context.getString(R.string.windows), context.getString(R.string.windows_help)) {
             PocketChoices { WindowsVersion.entries.forEach { version ->
                 FilterChip(selected=selection.version==version,onClick={update(selection.copy(version=version))},enabled=!locked,label={Text(version.label)})
             } }
             PocketChoices { WindowsEdition.entries.forEach { edition ->
                 FilterChip(selected=selection.edition==edition,onClick={update(selection.copy(edition=edition))},enabled=!locked,label={Text(edition.label)})
             } }
-            if(selection.version==WindowsVersion.WINDOWS_10) Text("Support standard terminé",color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+            if(selection.version==WindowsVersion.WINDOWS_10) Text(context.getString(R.string.support_ended),color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
             PocketChoices {
                 FilterChip(selected=language=="French",onClick={language="French"},enabled=!locked,label={Text("Français")})
                 FilterChip(selected=language=="English",onClick={language="English"},enabled=!locked,label={Text("English US")})
             }
-            Button(onClick={resolver=true},enabled=!locked,modifier=Modifier.fillMaxWidth()) {Text(if(image==null) "Télécharger Windows" else "Télécharger une autre image")}
+            Button(onClick={resolver=true},enabled=!locked,modifier=Modifier.fillMaxWidth()) {Text(if(image==null) context.getString(R.string.download_windows) else context.getString(R.string.download_another))}
             if(download.active) {
                 if(download.total>0) LinearProgressIndicator(progress={(download.bytes.toFloat()/download.total).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
                 else LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(download.message)
-                OutlinedButton(onClick={WindowsDownloadService.cancel(context)}) {Text("Annuler le téléchargement")}
+                OutlinedButton(onClick={WindowsDownloadService.cancel(context)}) {Text(context.getString(R.string.cancel_download))}
             } else if(download.message.isNotBlank() && download.prepared == 0L) PocketNote(download.message)
             if(!busy && (message.startsWith("Import refusé") || message.startsWith("Image indisponible"))) PocketNote(message,error=true)
             if(busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(message) }
-            else if(image!=null) PocketNote(if(match.size==1) "${match.single().name} · image disponible" else "Cette édition manque dans l’image importée.",error=match.size!=1)
+            else if(image!=null) PocketNote(if(match.size==1) context.getString(R.string.image_available, match.single().name) else context.getString(R.string.edition_missing),error=match.size!=1)
             else Text(message,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick={manual=!manual},enabled=!locked) {Text(if(manual) "Fermer l’import manuel" else "J’ai déjà une image Windows")}
+            TextButton(onClick={manual=!manual},enabled=!locked) {Text(if(manual) context.getString(R.string.close_manual) else context.getString(R.string.already_image))}
             if(manual) {
-                HelpButton("Importer une image", "Importe une ISO Microsoft officielle, ou sources/install.wim ou install.esd extrait de cette ISO. Le ZIP WinPE contient l’environnement de démarrage, pas Windows. Prévois 15 à 20 Go libres sur le téléphone pour le téléchargement et la préparation. Un SHA-256 officiel peut être fourni pour vérifier le fichier.")
-                OutlinedButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version==WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO")))},enabled=!locked) {Text("Site Microsoft")}
-                OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text("SHA-256 officiel · facultatif")},singleLine=true,modifier=Modifier.fillMaxWidth())
-                PocketCheck("Fichier téléchargé depuis Microsoft",trusted,!locked) {trusted=it}
-                OutlinedButton(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text("Importer mon image")}
+                HelpButton(context.getString(R.string.import_image), context.getString(R.string.import_help))
+                OutlinedButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(selection.version==WindowsVersion.WINDOWS_11) "https://www.microsoft.com/fr-fr/software-download/windows11" else "https://www.microsoft.com/fr-fr/software-download/windows10ISO")))},enabled=!locked) {Text(context.getString(R.string.microsoft_site))}
+                OutlinedTextField(value=hash,onValueChange={hash=it.take(64)},enabled=!locked,label={Text(context.getString(R.string.optional_hash))},singleLine=true,modifier=Modifier.fillMaxWidth())
+                PocketCheck(context.getString(R.string.from_microsoft),trusted,!locked) {trusted=it}
+                OutlinedButton(onClick={picker.launch(arrayOf("*/*"))},enabled=!locked && trusted && (hash.isBlank() || hash.trim().matches(Regex("[a-fA-F0-9]{64}")))) {Text(context.getString(R.string.import_my_image))}
             }
         }
-        PocketSection("02  Stockage", "Le disque est choisi sur le PC. Une installation neuve efface ses partitions uniquement après confirmation explicite. Les petites partitions EFI, MSR et récupération restent masquées. En mode séparé, les dossiers personnels restent sur C: : enregistre tes fichiers et jeux sur D:. Masquer C: retire son icône, sans bloquer son accès.") {
+        PocketSection(context.getString(R.string.storage), context.getString(R.string.storage_help)) {
             PocketChoices { StorageLayout.entries.forEach { layout ->
-                FilterChip(selected=selection.storageLayout==layout,onClick={update(selection.copy(storageLayout=layout))},enabled=!locked,label={Text(layout.label)})
+                FilterChip(selected=selection.storageLayout==layout,onClick={update(selection.copy(storageLayout=layout))},enabled=!locked,label={Text(context.getString(if(layout==StorageLayout.SINGLE) R.string.layout_single else R.string.layout_split))})
             } }
             if(selection.storageLayout==StorageLayout.SPLIT) {
-                PocketCheck("Taille Windows automatique",selection.autoSystemSize,!locked) {update(selection.copy(autoSystemSize=it))}
+                PocketCheck(context.getString(R.string.auto_size),selection.autoSystemSize,!locked) {update(selection.copy(autoSystemSize=it))}
                 if(selection.autoSystemSize) {
-                    Text(sizing?.getOrNull()?.let {"Windows : $it Gio · Mes fichiers : le reste"} ?: "Taille calculée après l’import de Windows",style=MaterialTheme.typography.bodyMedium)
-                    HelpButton("Taille automatique", "Le calcul utilise la taille de l’édition sélectionnée, 10 Gio pour les temporaires et 16 Gio de marge pour les mises à jour. Il couvre aussi le transfert WIM/ESD et respecte un plancher conservateur de 64 Gio pour Windows 11 et 32 Gio pour Windows 10. D: reçoit le reste, au moins 16 Gio. Ce calcul n’est pas un quota ni une garantie d’espace libre après installation de logiciels.")
+                    Text(sizing?.getOrNull()?.let {context.getString(R.string.split_sizes, it)} ?: context.getString(R.string.size_after_import),style=MaterialTheme.typography.bodyMedium)
+                    HelpButton(context.getString(R.string.auto_size_title), context.getString(R.string.size_help))
                 } else PocketChoices { listOf(48,64,80,96,128,160,256,512).forEach { size ->
-                    FilterChip(selected=selection.systemGiB==size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text("$size Gio")})
+                    FilterChip(selected=selection.systemGiB==size,onClick={update(selection.copy(systemGiB=size))},enabled=!locked,label={Text(context.getString(R.string.size_gib, size))})
                 } }
                 sizing?.exceptionOrNull()?.message?.let {PocketNote(it,error=true)}
-                PocketCheck("Masquer C: dans l’Explorateur",selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
+                PocketCheck(context.getString(R.string.hide_c),selection.hideSystemDrive,!locked) {update(selection.copy(hideSystemDrive=it))}
             }
-            Text("Effacement à confirmer sur le PC",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(context.getString(R.string.confirm_erase),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        PocketSection("03  Personnalisation", "Léger retire Clipchamp, Solitaire, Actualités et Météo si présents. Auto choisit Léger avec moins de 8 Go de RAM ou au plus 2 cœurs, sinon Aucun. Windows Update, Defender, le Store et les pilotes restent disponibles. Le choix de l’édition n’est pas automatique.") {
+        PocketSection(context.getString(R.string.personalization), context.getString(R.string.personalization_help)) {
             PocketChoices { DebloatProfile.entries.forEach { profile ->
-                FilterChip(selected=selection.debloat==profile,onClick={update(selection.copy(debloat=profile))},enabled=!locked,label={Text(profile.label)})
+                FilterChip(selected=selection.debloat==profile,onClick={update(selection.copy(debloat=profile))},enabled=!locked,label={Text(context.getString(when(profile) { DebloatProfile.NONE -> R.string.profile_none; DebloatProfile.LIGHT -> R.string.profile_light; DebloatProfile.CUSTOM -> R.string.profile_custom; DebloatProfile.AUTO -> R.string.profile_auto }))})
             } }
             if(selection.debloat==DebloatProfile.CUSTOM) {
-                PocketCheck("Retirer Clipchamp",selection.removeClipchamp,!locked) {update(selection.copy(removeClipchamp=it))}
-                PocketCheck("Retirer Solitaire",selection.removeSolitaire,!locked) {update(selection.copy(removeSolitaire=it))}
-                PocketCheck("Retirer Actualités",selection.removeNews,!locked) {update(selection.copy(removeNews=it))}
-                PocketCheck("Retirer Météo",selection.removeWeather,!locked) {update(selection.copy(removeWeather=it))}
+                PocketCheck(context.getString(R.string.remove_clipchamp),selection.removeClipchamp,!locked) {update(selection.copy(removeClipchamp=it))}
+                PocketCheck(context.getString(R.string.remove_solitaire),selection.removeSolitaire,!locked) {update(selection.copy(removeSolitaire=it))}
+                PocketCheck(context.getString(R.string.remove_news),selection.removeNews,!locked) {update(selection.copy(removeNews=it))}
+                PocketCheck(context.getString(R.string.remove_weather),selection.removeWeather,!locked) {update(selection.copy(removeWeather=it))}
             }
-            PocketCheck("Installer au prochain démarrage PXE",enabled,!locked && valid) {update(install=it)}
-            if(enabled) PocketNote("Sélection prête. Ouvre l’onglet Installer.")
+            PocketCheck(context.getString(R.string.install_next),enabled,!locked && valid) {update(install=it)}
+            if(enabled) PocketNote(context.getString(R.string.selection_ready))
         }
     }
 }

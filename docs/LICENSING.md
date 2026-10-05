@@ -1,6 +1,6 @@
 # Licences et provenance
 
-Depuis la version 3.3.0, les éléments originaux expressément placés sous [LICENSE](../LICENSE) utilisent **PocketInstall Contribution License 2.0**, `LicenseRef-PocketInstall-Contribution-2.0` : utilisation personnelle de l’application officielle, aucune republication ou version dérivée distribuée sans accord écrit. Les modifications sont permises uniquement pour préparer, tester en privé et soumettre une contribution au dépôt officiel. Voir [CONTRIBUTING.md](../CONTRIBUTING.md).
+Depuis la version 3.4.0, les éléments originaux expressément placés sous [LICENSE](../LICENSE) utilisent **PocketInstall Contribution License 2.0**, `LicenseRef-PocketInstall-Contribution-2.0` : utilisation personnelle de l’application officielle, aucune republication ou version dérivée distribuée sans accord écrit. Les modifications sont permises uniquement pour préparer, tester en privé et soumettre une contribution au dépôt officiel. Voir [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 Le même texte est embarqué dans `assets/licenses/PocketInstall-Personal.txt`, consultable hors ligne depuis Aide. Le nom historique de cet asset est conservé pour compatibilité.
 

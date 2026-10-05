@@ -1,4 +1,6 @@
-# Windows PE avec Freebox Révolution
+# PocketInstall avec Freebox Révolution
+
+Pour Windows, le bouton **Télécharger WinPE depuis GitHub** de la 3.3.0 récupère et importe le ZIP automatiquement (connexion GitHub si nécessaire). Pour Debian, choisis Linux bureau ou serveur puis **Télécharger Debian** : WinPE est inutile. La configuration de la box décrite ci-dessous sert aux deux parcours.
 
 ## Première configuration
 
@@ -25,7 +27,7 @@ L'application affiche : attente → PC détecté → iPXE connecté → chargeme
 
 Le signal est une notification de fonctionnement sur le LAN, pas une attestation cryptographique. La preuve matérielle reste le message `PocketInstall boot successful (WinPE)` et la console Windows PE sur l'écran du PC. Un pilote réseau absent dans WinPE peut empêcher la notification alors que la console fonctionne ; vérifier l'écran et les pilotes.
 
-Les fichiers `winpeshl.ini` et `pocketinstall.cmd` sont générés par l'application et injectés par wimboot dans `X:\Windows\System32`. Ils lancent `wpeinit`, affichent le succès, envoient le signal HTTP via PowerShell si disponible, puis laissent la console ouverte. Aucun Windows Setup, diskpart, formatage ou réparation de boot n'est exécuté. Windows PE peut monter les disques.
+Les fichiers `winpeshl.ini` et `pocketinstall.cmd` sont générés par l'application et injectés par wimboot dans `X:\Windows\System32`. Ils initialisent le réseau et signalent le démarrage de WinPE, puis ouvrent l’installateur PocketInstall. Si une image Windows est activée, le choix du disque et la confirmation d’effacement restent sur le PC avant DiskPart et l’application de l’image. Le mode sans image ne lance pas d’installation. Pour Linux, Debian conserve ses propres questions de compte et de partitionnement, sans préconfirmation d’effacement.
 
 ## Diagnostic avancé
 
@@ -47,3 +49,4 @@ Tests Kotlin utilisant le même assemblage de routes qu'Android : script complet
 Personnalisation facultative : `scripts/Build-WinPE.ps1 -WithPowerShell` sur Windows avec ADK/add-on compatibles, puis `scripts/Package-WinPE.ps1`. Les pilotes réseau propres au PC peuvent être ajoutés avec `-DriverDirectory`.
 
 Références primaires iPXE : https://ipxe.org/embed ; https://ipxe.org/howto/winpe ; https://ipxe.org/wimboot (fichiers injectés). Microsoft ADK : https://learn.microsoft.com/windows-hardware/get-started/adk-install
+
