@@ -1,20 +1,12 @@
-# PocketInstall 3.1.1 — Windows et fichiers séparés
+# PocketInstall 3.1.1 — separate Windows and personal storage
 
-- Correction de l’erreur `No MSFT_Partition ... DriveLetter S` : validation par identifiant de volume et partition GPT, sans dépendre de la lettre EFI exposée par PowerShell.
-- Choix « Windows + Mes fichiers » : C: Windows et logiciels (96/128/160/256/512 Gio), D: reste du disque. Le disque doit garder au moins 16 Gio pour D: ; toute insuffisance est détectée avant effacement.
-- EFI, MSR et récupération restent masquées. La récupération est placée juste après Windows, avant D:.
-- Option pour masquer C: dans l’Explorateur, sans bloquer son accès. `D:\Afficher Windows.cmd` permet de l’afficher à nouveau pour le compte courant après fermeture/réouverture de session.
-- Les dossiers personnels et fichiers temporaires restent sur C:. Enregistre tes fichiers et jeux sur D: pour utiliser l’espace séparé.
-- Checkpoint de reprise avant application de Windows : `REPRENDRE N` au choix du disque reprend un transfert interrompu, sans clean ni format. Nécessite un checkpoint créé par cette version, la même image et le même agencement. Ne reprend pas une application DISM déjà commencée.
+- Fixes EFI validation when PowerShell cannot find `MSFT_Partition` by drive letter S, using GPT partition/volume identity instead.
+- Adds C: for Windows/software and D: for the remaining disk, requiring at least 16 GiB for D: before erasure.
+- Keeps EFI/MSR/recovery hidden and places recovery immediately after Windows.
+- Optional Explorer hiding of C:, reversible through `D:\Afficher Windows.cmd` after signing out/in. Direct C: access remains possible.
+- Personal folders/temporary files remain on C:; save files/games on D: yourself.
+- Adds `REPRENDRE N` checkpoint-based resume before DISM image application, without cleaning/formatting existing partitions.
 
-## Mise à jour
+Install the matching APK and PXE reboot to load the new installer. Freebox/WinPE configuration is unchanged. Changing an existing layout requires another locally confirmed clean installation. Resume requires a matching checkpoint/image/layout and does not resume DISM already started.
 
-Installer `PocketInstall-3.1.1.apk`. Le ZIP WinPE et la configuration Freebox restent identiques à 3.1.0. Arrêter le serveur, régler l’agencement, activer l’installation et démarrer le serveur, puis redémarrer le PC en PXE pour charger le nouvel installateur.
-
-Pour créer D: sur un disque déjà partitionné par une ancienne version, une nouvelle installation avec effacement confirmé sur le PC est nécessaire. Un ancien WinPE déjà chargé en mémoire conserve l’ancien script.
-
-## Validation
-
-Contrôles ciblés des correspondances EFI/GPT, rejets de mauvais disque/volume/système de fichiers, génération des deux agencements et absence de clean/format dans la reprise. Compilation APK et contrôle syntaxique de l’installateur et du script de premier démarrage.
-
-Le démarrage WinPE a été observé sur le PC physique. L’installation complète et le nouveau masquage dans Windows Home/Pro restent à confirmer sur le PC ; la publication ne prétend pas valider un premier démarrage Windows réel.
+Targeted GPT/volume/layout/resume checks and APK/script validation were performed. Physical WinPE boot was observed; full deployment and Explorer hiding across editions remained to be confirmed at publication.

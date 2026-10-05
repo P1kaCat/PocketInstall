@@ -1,20 +1,20 @@
-name: Fonctionnalité ou distribution
-description: Proposer une amélioration à PocketInstall
+name: Feature or distribution request
+description: Propose an improvement to PocketInstall
 body:
   - type: textarea
     id: goal
     attributes:
-      label: Proposition
-      description: Quel besoin résout-elle ?
+      label: Proposal
+      description: What problem does this solve?
     validations:
       required: true
   - type: textarea
     id: source
     attributes:
-      label: Sources et compatibilité
-      description: Pour une distribution, indique sa page officielle, son architecture et son mode d’installation.
+      label: Sources and compatibility
+      description: For a distribution, include its official page, architecture and installation method.
   - type: textarea
     id: validation
     attributes:
-      label: Vérification prévue ou réalisée
-      description: Distingue téléchargement, démarrage et installation complète.
+      label: Planned or completed validation
+      description: Distinguish file delivery, startup and completed installation.

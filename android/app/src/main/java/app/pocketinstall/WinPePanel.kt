@@ -6,12 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pocketinstall.server.WinPeHttp
+import app.pocketinstall.server.GithubBundle
+import app.pocketinstall.server.DownloadMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -22,6 +27,7 @@ fun WinPePanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit, onReady: (Boole
     val scope = rememberCoroutineScope()
     var ready by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
+    var confirmDownload by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Vérification de l'environnement…") }
     val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
     val winpeDownload by WinPeDownloadStore.state.collectAsStateWithLifecycle()
@@ -59,7 +65,15 @@ fun WinPePanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit, onReady: (Boole
             finally { importing = false; onBusy(false); onReady(ready) }
         }
     }
-    if(winpeDownload.loginRequired) GithubDownloadDialog(close={WinPeDownloadService.dismissLogin()}) { cookie -> WinPeDownloadService.start(context,cookie) }
+    if(confirmDownload) DownloadConfirmationDialog("WinPE x64",
+        listOf(DownloadSource(context.getString(R.string.download_source_bundle),GithubBundle.RELEASE_PAGE),
+            DownloadSource(context.getString(R.string.download_source_adk),GithubBundle.MICROSOFT_SOURCE)),
+        context.getString(R.string.download_winpe_provenance),
+        inspect={connection -> mapOf("PocketInstall-WinPE-x64.zip" to DownloadMetadata.size(GithubBundle.URL,GithubBundle::allowed,1073741824,connection=connection))},
+        close={confirmDownload=false}, confirmed={sizes ->
+            confirmDownload=false
+            WinPeDownloadService.start(context,sizes.getValue("PocketInstall-WinPE-x64.zip"))
+        })
     PocketSection(context.getString(R.string.pc_environment), context.getString(R.string.environment_help)) {
         if(busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(context.getString(R.string.checking)) }
         else Text(if(ready) context.getString(R.string.winpe_ready) else context.getString(R.string.winpe_import),style=androidx.compose.material3.MaterialTheme.typography.titleMedium)
@@ -68,7 +82,9 @@ fun WinPePanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit, onReady: (Boole
             Text(winpeDownload.message,style=androidx.compose.material3.MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick={WinPeDownloadService.cancel(context)}){Text("Annuler le téléchargement")}
         } else if(winpeDownload.message.isNotEmpty()) Text(winpeDownload.message,style=androidx.compose.material3.MaterialTheme.typography.bodySmall)
-        if(!active) Button(onClick={WinPeDownloadService.start(context)},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(ready) "Actualiser WinPE depuis GitHub" else "Télécharger WinPE depuis GitHub")}
+        if(!active) Button(onClick={confirmDownload=true},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(ready) "Actualiser WinPE depuis GitHub" else "Télécharger WinPE depuis GitHub")}
+        TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(GithubBundle.RELEASE_PAGE)))}) {Text(context.getString(R.string.download_source_bundle))}
+        TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(GithubBundle.MICROSOFT_SOURCE)))}) {Text(context.getString(R.string.download_source_adk))}
         if(!active) OutlinedButton(onClick={picker.launch(arrayOf("application/zip","application/octet-stream","application/x-zip-compressed"))},enabled=!busy,modifier=Modifier.fillMaxWidth()) {
             Text(if(ready) context.getString(R.string.replace_winpe) else context.getString(R.string.import_winpe))
         }

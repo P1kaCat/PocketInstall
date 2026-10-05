@@ -11,13 +11,13 @@ permissions:
   actions: read
 jobs:
   winpe:
-    if: github.head_ref != 'codex/linux-install'
+    if: github.head_ref != 'codex/linux-install' && github.head_ref != 'codex/download-consent'
     uses: ./.github/workflows/build-winpe.yml
     with:
       # Includes matching TPM/Secure Boot components; current installer is injected over HTTP.
       prepared_run_id: 37170055420
   android:
-    if: github.head_ref != 'codex/linux-install'
+    if: github.head_ref != 'codex/linux-install' && github.head_ref != 'codex/download-consent'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

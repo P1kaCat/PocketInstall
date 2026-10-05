@@ -1,77 +1,48 @@
-Depuis la version 3.1.0, le bouton **Télécharger et préparer Windows** récupère une ISO x64 officielle Microsoft puis prépare l’image dans l’application. Choisir Windows, l’édition et la langue avant de lancer. Prévoir 15 à 20 Go libres. Le téléchargement continue en arrière-plan avec notification et peut être annulé. Une coupure demande de relancer le téléchargement. Si Microsoft réclame une intervention, sa page apparaît dans l’application ; l’import manuel reste disponible.
+# Install Windows from PocketInstall
 
-Aucun changement de configuration Freebox ou de ZIP WinPE pour passer de 0.3.0-install-preview à 3.1.0.
+## On the phone
 
-# Installer Windows depuis PocketInstall
+1. Download/import the validated WinPE ZIP. Source links distinguish the prepared PocketInstall ZIP from Microsoft ADK/WinPE.
+2. Select Windows 10/11, Home/Pro and media language according to your license.
+3. Obtain an official Microsoft ISO using the app. Review its actual size before confirming. Allow roughly twice the ISO size for download and extraction; additional device headroom may be needed.
+4. Alternatively import official ISO/WIM/ESD using Android's file picker. Supported ISO9660/simple physical-partition UDF media are extracted locally. ARM64 and split SWM media are rejected.
+5. Choose storage and optional debloat, enable installation on the next PXE boot, then start the WinPE server.
+6. Boot the PC in Ethernet / UEFI PXE IPv4. Startup, networking and hardware reporting run automatically.
 
-Le parcours Freebox → iPXE → WinPE reste automatique. La Freebox se configure manuellement une seule fois ; aucun changement supplémentaire n'est nécessaire pour passer du test WinPE à l'installation.
+No full Windows ISO is hosted by PocketInstall. Source-host validation, length checks and integrity checks remain active. Without an independently supplied publisher checksum, an import hash only protects subsequent integrity. A failed import preserves the previous environment.
 
-## Sur le téléphone
+## On the PC
 
-1. Importe `PocketInstall-WinPE-x64.zip` si ce n'est pas déjà fait.
-2. Dans **Installer Windows**, choisis **Windows 10 / Windows 11**, puis **Home / Pro**, en fonction de ta licence.
-3. Télécharge ton ISO officielle avec le bouton Microsoft, puis importe l'ISO. L'application extrait `sources/install.wim` ou `install.esd` sans ordinateur Windows de préparation. Elle accepte les ISO9660 et les UDF à partition physique simple. Pour un format non pris en charge, extrais ce fichier sur le téléphone et importe directement le WIM/ESD. Les SWM séparés et ARM64 sont refusés.
-4. Le SHA-256 officiel du fichier source peut être saisi avant l'import. Sans ce hash, l'empreinte enregistrée protège l'intégrité du transfert ; elle n'authentifie pas indépendamment l'éditeur. Utilise exclusivement ton téléchargement Microsoft officiel.
-5. Choisis le débloat, active **Préparer l'installation au prochain démarrage PXE**, puis démarre le serveur WinPE.
-6. Démarre le PC en Ethernet / UEFI PXE IPv4. Le réseau, le signal WinPE et l'inventaire matériel sont automatiques.
+This is a **clean installation that erases the selected disk**, not an upgrade or file-preserving reinstall. Back up first.
 
-L'import utilise une copie privée. L'extraction ISO nécessite temporairement de l'espace pour l'ISO et l'image extraite ; l'ISO temporaire est supprimée après extraction. L'image privée est vérifiée à nouveau avant le démarrage du serveur. Les éditions et index proviennent des métadonnées du fichier, puis sont revalidés avec DISM sur le PC. Un choix absent du fichier n'est jamais remplacé silencieusement.
+WinPE displays internal disks, identity and size. Select a disk and type the exact on-screen confirmation, currently `EFFACER N`. The phone does not remotely approve erasure. Disk identity is reread before writing.
 
-## Sur le PC
+**Image transfer occurs after erasure/partitioning. A failed network or image can leave the disk erased.** Keep the phone powered and the network stable. The server expires after 30 minutes.
 
-L'installation actuelle est une **installation neuve avec effacement complet du disque choisi**, pas une mise à niveau ni une conservation de fichiers. Sauvegarde auparavant ce qui doit être conservé.
+The installer prepares GPT, a 300 MiB FAT32 EFI partition, 16 MiB MSR, Windows NTFS and 2 GiB recovery. DISM applies the selected image; BCDBoot prepares UEFI boot and REAgentC registers WinRE. USB/SD media, offline/read-only disks and unsafe identities are rejected.
 
-WinPE affiche les disques internes, leurs modèles, numéros de série et tailles. Choisis le numéro, vérifie le récapitulatif puis tape `EFFACER <numéro>` pour confirmer. L'application n'envoie jamais cette confirmation à distance. Une saisie différente annule l'opération. L'identité du disque est relue avant la première écriture ; les autres disques ne sont pas sélectionnés par défaut.
+Restart on the internal disk, finish OOBE, install required drivers and activate with your Windows license. A startup callback during `specialize` is distinct from completed OOBE.
 
-**Le transfert de l'image commence après l'effacement et le partitionnement. Une panne de réseau ou un échec d'image à ce stade laisse le disque effacé.** Garde le téléphone alimenté, le serveur actif et le réseau stable. La session HTTP dure 30 minutes ; la console reste disponible en cas d'échec.
+## Storage
 
-Le programme crée GPT / EFI FAT32 300 Mio / MSR 16 Mio / Windows NTFS / Recovery 2 Gio. Il transfère l'image sur le volume Windows avec reprises par blocs HTTP, vérifie son SHA-256 et son index/édition/architecture, applique Windows avec DISM, journalise le débloat, prépare le boot UEFI avec BCDBoot et enregistre WinRE avec REAgentC.
+Single-volume mode keeps Windows and user files on C:. Split mode keeps Windows/applications/temporary files on C: and gives the remaining space to D:, requiring at least 16 GiB for D:. EFI/MSR/recovery remain hidden. Recovery sits between C: and D:.
 
-Les disques internes accessibles doivent avoir au moins 64 Gio et assez de place pour Windows, l'image temporaire et la récupération. Les supports USB/SD, disques hors ligne/lecture seule, identités inconnues et lettres S/W/R déjà occupées sont refusés. Aucune conversion d'un système existant, aucun déverrouillage BitLocker ni restauration de données n'est effectué.
+Automatic Windows sizing uses the selected edition's size, 10 GiB temporary headroom, 16 GiB update headroom, peak image staging and Windows minimum capacity, rounded up to 4 GiB. It is an estimate, not a temporary-file quota. Missing metadata requires a manual choice. RAM/pagefile, hibernation, updates and installed software can change usage.
 
-Une fois prêt, redémarre sur le disque interne. Termine OOBE, installe les pilotes éventuellement nécessaires et active Windows avec ta licence. Le premier démarrage envoie un signal pendant `specialize` si le serveur est encore joignable. La fin d'OOBE reste à vérifier sur le PC.
+Optional Explorer hiding does not remove C: or prevent direct paths. The generated `D:\Afficher Windows.cmd` can restore visibility for the current account after signing out/in. If D: conflicts with another volume, C: remains visible. Personal folders are not automatically relocated.
 
-## Débloat et mode automatique
+After an interrupted transfer, `REPRENDRE N` can resume only with a valid matching checkpoint, disk, image and partition layout. It mounts existing partitions without cleaning/formatting them. It does not resume an already-started DISM application. Do not erase again merely to bypass a rejected checkpoint.
 
-- **Aucun** : aucun retrait d'application.
-- **Léger** : retire uniquement Clipchamp, Solitaire, Actualités et Météo, s'ils sont provisionnés dans l'image.
-- **Personnalisé** : choisis séparément ces quatre applications.
-- **Auto** : profil léger avec moins de 8 Gio de RAM ou au maximum deux cœurs physiques détectés ; sinon aucun retrait. L'édition reste un choix de licence.
+## Debloat and compatibility
 
-Windows Update, Defender, Microsoft Store, les pilotes et les services ne sont pas désactivés. Les changements sont enregistrés dans `C:\PocketInstall\debloat.json`. Les applications retirées peuvent être réinstallées depuis Microsoft Store.
+None removes nothing. Light removes provisioned Clipchamp, Solitaire, News and Weather. Custom selects these separately. Auto uses Light below 8 GiB RAM or at most two detected physical cores; otherwise None. Edition selection remains a licensing choice.
 
-Le nouveau ZIP WinPE inclut le pilote et le fournisseur TPM ainsi que les commandes Secure Boot. Réimporte le ZIP de cette release pour bénéficier de cette détection ; un ancien environnement sans ces composants indique « inconnu », jamais « absent » sur cette seule base. La RAM installée est lue dans les données SMBIOS, avec repli sur la RAM utilisable si ces données manquent.
+Defender, Windows Update, Microsoft Store and drivers are not disabled. Changes are logged in `C:\PocketInstall\debloat.json`; removed applications can be reinstalled through Store.
 
-Windows 11 refuse les échecs connus sur RAM, nombre de cœurs et TPM 2.0. Si une information manque, elle reste inconnue ; aucune compatibilité complète n'est annoncée. Vérifie aussi le modèle du processeur dans les listes Microsoft et la capacité Secure Boot. Le chargeur PXE actuel est non signé ; aucun contournement des exigences Windows n'est appliqué.
+Known Windows 11 RAM/core/TPM failures are rejected; unknown information is not proof of compatibility. CPU support and firmware capabilities must also be checked. No activation or hardware-requirement bypass is provided. Windows 10 standard support has ended.
 
-Windows 10 reste proposé pour les licences et usages correspondants, avec l'indication de fin du support standard. Le mode automatique ne le choisit pas à cause d'une faible RAM.
+## Diagnostics and evidence
 
-## États et diagnostic
+DISM logs live in `X:\Windows\Logs\DISM`; installation logs are in `W:\PocketInstall` when available, then `C:\PocketInstall` after normal boot. Expired tokens require a new server session/PXE boot.
 
-Le transfert WinPE, son démarrage, l'application de Windows et son premier démarrage sont des états distincts. `Windows appliqué` ne signifie jamais `Windows démarré`. Le dernier état exige un signal exécuté par le Windows installé ; une requête d'image ne suffit pas.
-
-Les commandes manuelles restent dans le diagnostic avancé. En cas d'échec, les journaux DISM sont dans `X:\Windows\Logs\DISM`, et ceux de l'installation dans `W:\PocketInstall` si ce volume a été créé. Après démarrage normal, ce dossier est `C:\PocketInstall`. Un token expiré nécessite une nouvelle session et un nouveau boot PXE ; il n'est pas remplacé à la main.
-
-## Validation de cette preview
-
-Les tests Android/serveur et le boot automatique WinPE sans disque ont réussi. Un test distinct d'installation Windows 11 Pro sur QCOW2 jetable a été lancé, mais son résultat final n'est pas confirmé au moment de la publication de la preview 0.3.0. Le démarrage du Windows installé, l'installation physique, la fin d'OOBE et les quatre éditions restent à valider. Les tests d'installation ne redistribuent ni l'ISO ni le système Windows.
-
-## Disque Windows et espace pour les fichiers (3.1.1)
-
-Dans **Organisation du disque**, choisir **Windows + Mes fichiers** réserve une taille fixe à C: (Windows, applications et temporaires), puis attribue le reste à D: **Mes fichiers**. Les partitions EFI (300 Mio), MSR (16 Mio) et WinRE (2 Gio) restent masquées. WinRE est située entre C: et D: pour permettre son agrandissement lors des mises à jour Windows. Au moins 16 Gio doivent rester pour D:, sinon aucun effacement n’est lancé.
-
-**Masquer C: dans l’Explorateur** ne supprime pas C: et n’empêche pas de saisir un chemin comme `C:\Windows`. Le masquage est appliqué au profil par défaut au premier démarrage, une fois D: vérifiée sur le disque Windows. Si D: est déjà occupée par un autre volume, PocketInstall ne le modifie pas, conserve C: visible et écrit le diagnostic dans `C:\PocketInstall\storage-status.txt`. `D:\Afficher Windows.cmd` enlève le masquage pour le compte courant ; fermer puis rouvrir la session.
-
-Les dossiers personnels ne sont pas déplacés automatiquement : sélectionner D: comme destination des fichiers et jeux. Le mode **Tout sur C:** conserve l’agencement précédent.
-
-Après une interruption du transfert avec cette version, redémarrer le même environnement et choisir **REPRENDRE N** au lieu du seul numéro de disque. La reprise vérifie le checkpoint, l’identité du disque, toutes les partitions et l’image. Elle ne nettoie, ne crée et ne formate aucune partition. Elle s’arrête si l’application DISM a déjà commencé, si la sélection ne correspond plus, ou si le checkpoint est absent. Les installations lancées avec 3.1.0 ne disposent pas de ce checkpoint.
-
-## Taille automatique de Windows (3.1.2)
-
-Le mode séparé utilise **Dimensionner automatiquement Windows** par défaut. C: n’est plus fixé à 128 Gio. L’appli estime sa capacité à partir du champ `TOTALBYTES` de l’édition choisie dans le WIM/ESD, puis prend le maximum de :
-
-- Taille de l’édition + 10 Gio pour les temporaires + 16 Gio pour les mises à jour.
-- Taille de l’édition + taille du fichier de transfert + 2 Gio de travail.
-- 64 Gio pour Windows 11 ou 32 Gio pour Windows 10.
-
-Le résultat est arrondi au multiple de 4 Gio supérieur. Le reste va à D: (16 Gio minimum). La valeur apparaît dans l’appli ; WinPE refait le calcul avant effacement et vérifie aussi la taille DISM avant application. Une édition sans taille connue demande un choix manuel. Le calcul n’est pas un quota : les logiciels, pagefile, veille prolongée et mises à jour peuvent consommer davantage à l’usage. Le choix manuel reste possible et doit couvrir le minimum estimé.
+Windows reached first boot on the development PC. That does not certify every edition, driver, machine or completed OOBE. See [Validation](VALIDATION.md).

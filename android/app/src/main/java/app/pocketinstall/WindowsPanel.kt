@@ -29,10 +29,11 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     var trusted by remember { mutableStateOf(false) }
     val download by WindowsDownloadStore.state.collectAsStateWithLifecycle()
     var resolver by remember { mutableStateOf(false) }
+    var pendingDownload by remember { mutableStateOf<Pair<String,String>?>(null) }
     var language by remember { mutableStateOf("French") }
     var manual by remember { mutableStateOf(false) }
     val winpeDownload by WinPeDownloadStore.state.collectAsStateWithLifecycle()
-    val locked = winpeDownload.active || busy || resolver || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
+    val locked = winpeDownload.active || busy || resolver || pendingDownload != null || download.active || state.importingWinPe || state.status in setOf(ServerStatus.RUNNING,ServerStatus.STARTING)
     fun update(value: WindowsSelection = selection, install: Boolean = enabled) {
         val valid = install && image?.entries?.count { it.matches(value) } == 1 &&
             runCatching { WindowsDiskSize.selectedGiB(value,checkNotNull(image)) }.isSuccess
@@ -67,7 +68,17 @@ fun WindowsPanel(state: ServerSnapshot, onBusy: (Boolean) -> Unit) {
     }
     if(resolver) MicrosoftDownloadDialog(selection.version,language,close={resolver=false}) { url,agent ->
         resolver=false
-        WindowsDownloadService.start(context,url,agent)
+        pendingDownload = url to agent
+    }
+    pendingDownload?.let { (url,agent) ->
+        DownloadConfirmationDialog(selection.version.label + " · " + selection.edition.label,
+            listOf(DownloadSource(context.getString(R.string.download_source_microsoft),"https://www.microsoft.com/software-download/" + if(selection.version==WindowsVersion.WINDOWS_11) "windows11" else "windows10ISO")),
+            context.getString(R.string.download_windows_space),
+            inspect={ connection -> mapOf("Windows x64 ISO" to DownloadMetadata.size(url,MicrosoftIso::validUrl,WindowsImage.MAX_BYTES,1048576,agent,connection)) },
+            close={pendingDownload=null}, confirmed={sizes ->
+                pendingDownload=null
+                WindowsDownloadService.start(context,url,agent,sizes.getValue("Windows x64 ISO"))
+            })
     }
     val match = image?.entries?.filter { it.matches(selection) }.orEmpty()
     val sizing = image?.let { runCatching { WindowsDiskSize.selectedGiB(selection,it) } }

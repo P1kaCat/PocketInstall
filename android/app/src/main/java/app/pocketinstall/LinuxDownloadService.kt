@@ -46,14 +46,15 @@ class LinuxDownloadService : Service() {
         worker = Thread({
             try {
                 var last = 0L
-                LinuxStorage.prepare(this,{cancelled.get()},{connection=it}) { name,bytes,total ->
+                val approvedSizes = (LinuxInstaller.names + "SHA256SUMS").associateWith { intent.getLongExtra("size:$it",0).also { size -> require(size > 0) { "Confirme la taille avant de télécharger." } } }
+                LinuxStorage.prepare(this,{cancelled.get()},{connection=it}, progress = { name,bytes,total ->
                     if(SystemClock.elapsedRealtime()-last>=400 || bytes==total) {
                         last=SystemClock.elapsedRealtime()
                         val message="Debian · $name · ${bytes/1048576} Mio"
                         LinuxDownloadStore.mutable.update { it.copy(bytes=bytes,total=total,message=message) }
                         notifications.notify(3,notification(message,if(total>0)(bytes*100/total).toInt() else null))
                     }
-                }
+                }, approvedSizes = approvedSizes)
                 LinuxDownloadStore.mutable.update { it.copy(active=false,message="Debian prêt · fichiers et routes vérifiés.",prepared=it.prepared+1) }
             } catch(e: Exception) {
                 LinuxDownloadStore.mutable.update { it.copy(active=false,message=if(cancelled.get()) "Téléchargement annulé." else "Téléchargement non terminé : ${e.message}") }
@@ -78,9 +79,9 @@ class LinuxDownloadService : Service() {
         private const val CHANNEL = "linux-download"
         private const val START = "app.pocketinstall.DOWNLOAD_LINUX"
         private const val CANCEL = "app.pocketinstall.CANCEL_LINUX"
-        fun start(context: Context) {
+        fun start(context: Context,approvedSizes: Map<String,Long>) {
             LinuxDownloadStore.mutable.update { it.copy(active=true,message="Démarrage du téléchargement…",bytes=0,total=0) }
-            try { ContextCompat.startForegroundService(context,Intent(context,LinuxDownloadService::class.java).setAction(START)) }
+            try { ContextCompat.startForegroundService(context,Intent(context,LinuxDownloadService::class.java).setAction(START).apply { approvedSizes.forEach { (name,size) -> putExtra("size:$name",size) } }) }
             catch(e: Exception) { LinuxDownloadStore.mutable.update { it.copy(active=false,message="Téléchargement indisponible : ${e.message}") } }
         }
         fun cancel(context: Context) { context.startService(Intent(context,LinuxDownloadService::class.java).setAction(CANCEL)) }

@@ -1,13 +1,13 @@
-## Comportement
+## Behavior
 
-Décris le problème et le résultat pour l’utilisateur.
+Describe the problem and the resulting behavior for users.
 
 ## Validation
 
-Indique ce qui a été testé et les limites restantes.
+Explain what was tested and any remaining limitations.
 
 ## Provenance
 
-Mentionne les composants tiers et leurs licences, s’il y en a.
+Identify third-party components and their licenses where relevant.
 
-Je soumets cette contribution conformément à CONTRIBUTING.md et confirme avoir les droits nécessaires pour la proposer.
+I submit this contribution under CONTRIBUTING.md and confirm that I have the necessary rights.

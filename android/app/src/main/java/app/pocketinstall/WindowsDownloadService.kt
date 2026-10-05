@@ -58,7 +58,7 @@ class WindowsDownloadService : Service() {
                         WindowsDownloadStore.mutable.update { it.copy(bytes=bytes,total=total,message=message) }
                         notifications.notify(2,notification(message,(bytes*100/total).toInt()))
                     }
-                })
+                }, approvedBytes = intent.getLongExtra("approvedBytes",0))
                 if(cancelled.get()) throw InterruptedException()
                 WindowsDownloadStore.mutable.update { it.copy(message="Préparation et validation de l’image Windows…",total=0) }
                 notifications.notify(2,notification("Préparation de l’image Windows…"))
@@ -88,10 +88,10 @@ class WindowsDownloadService : Service() {
         private const val CHANNEL = "windows-download"
         private const val START = "app.pocketinstall.DOWNLOAD_WINDOWS"
         private const val CANCEL = "app.pocketinstall.CANCEL_WINDOWS"
-        fun start(context: Context,url: String,agent: String) {
+        fun start(context: Context,url: String,agent: String,approvedBytes: Long) {
             require(MicrosoftIso.validUrl(url))
             WindowsDownloadStore.mutable.update { it.copy(active=true,message="Démarrage du téléchargement…",bytes=0,total=0) }
-            try { ContextCompat.startForegroundService(context,Intent(context,WindowsDownloadService::class.java).setAction(START).putExtra("url",url).putExtra("agent",agent)) }
+            try { ContextCompat.startForegroundService(context,Intent(context,WindowsDownloadService::class.java).setAction(START).putExtra("url",url).putExtra("agent",agent).putExtra("approvedBytes",approvedBytes)) }
             catch(e: Exception) { WindowsDownloadStore.mutable.update { it.copy(active=false,message="Téléchargement indisponible : ${e.message}") } }
         }
         fun cancel(context: Context) { context.startService(Intent(context,WindowsDownloadService::class.java).setAction(CANCEL)) }

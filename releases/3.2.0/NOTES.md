@@ -1,11 +1,9 @@
-# PocketInstall 3.2.0 — interface simplifiée
+# PocketInstall 3.2.0 — simplified interface
 
-Trois onglets : Préparer, Installer et Aide. Les choix Windows, édition, langue, stockage et personnalisation gardent leur fonctionnement. Les explications longues se trouvent dans les boutons « ? Aide » ; URL, commandes et journaux restent dans Diagnostic. Les erreurs et la nécessité de confirmer l’effacement restent visibles.
+Prepare, Install and Help tabs; compact sections, wrapping choices, light/dark themes and expandable help. Long technical instructions move to help buttons; URLs/manual commands/logs remain in Diagnostics. Errors and local disk confirmation remain visible.
 
-Thèmes clair/sombre, sections compactes, choix qui passent à la ligne, boutons accessibles et aide refermable. La progression distingue un transfert terminé d’un démarrage réellement confirmé par le PC. Les contrôles d’intégrité et les confirmations de disque sont conservés.
+WinPE displays organized stages. DiskPart output is logged to `X:\PocketInstall-native.log`, then `W:\PocketInstall\native.log`; DISM retains real progress. Transfer completion is not reported as confirmed boot.
 
-WinPE affiche les étapes de l’installation. Les sorties DiskPart sont consignées dans X:\PocketInstall-native.log puis copiées vers W:\PocketInstall\native.log dès que ce dossier est disponible. DISM conserve sa progression réelle ; la console et les journaux restent disponibles en cas d’erreur.
+Install the matching APK and PXE reboot. The WinPE ZIP/snponly.efi remain unchanged. To replace the old repeated iPXE wait text, export pocketinstall.ipxe from Help and replace that file in the router's TFTP folder.
 
-Installer PocketInstall-3.2.0.apk et redémarrer le serveur puis le PC en PXE. Le ZIP WinPE et snponly.efi restent les mêmes. Pour remplacer l’ancienne attente iPXE répétitive, exporter pocketinstall.ipxe depuis Aide > Configuration Freebox et remplacer ce seul fichier dans le dossier TFTP. Aucun autre réglage Freebox à changer. Sans cet export, l’ancien écran d’attente reste présent mais le démarrage fonctionne.
-
-Validation : contrôles ciblés des routes WinPE et de la sécurité du stockage, compilation/lint Android, ouverture native sur émulateur, navigation/aide, thèmes clair et sombre, texte à 200 % et paysage. Les captures natives sont jointes. Le nouveau rendu du terminal et l’installation physique de cette version restent à confirmer sur le PC. La version 3.1.3 a atteint le premier démarrage Windows sur le PC de l’utilisateur ; cela ne certifie pas toutes les machines ni la fin de la configuration initiale.
+Validation included targeted routes/storage checks, Android build/lint and emulator navigation/help/light-dark/large-font/landscape checks. Physical terminal rendering and this release's full installation remained to be confirmed. The user's earlier 3.1.3 installation reached first boot, not guaranteed OOBE completion on all PCs.

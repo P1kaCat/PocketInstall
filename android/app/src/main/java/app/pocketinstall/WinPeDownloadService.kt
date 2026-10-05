@@ -14,7 +14,7 @@ import java.net.HttpURLConnection
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class WinPeDownloadState(val active: Boolean = false, val message: String = "", val bytes: Long = 0,
-    val total: Long = 0, val prepared: Long = 0, val loginRequired: Boolean = false)
+    val total: Long = 0, val prepared: Long = 0)
 object WinPeDownloadStore {
     internal val mutable = MutableStateFlow(WinPeDownloadState())
     val state = mutable.asStateFlow()
@@ -43,12 +43,12 @@ class WinPeDownloadService : Service() {
         }
         WinPeDownloadStore.mutable.update { it.copy(active=true,message="Connexion à GitHub…",bytes=0,total=0) }
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"PocketInstall:WinPeDownload").apply { acquire(2*60*60*1000L) }
-        val cookie=intent.getStringExtra("cookie").orEmpty()
+        val approvedBytes=intent.getLongExtra("approvedBytes",0)
         worker = Thread({
             val file=File(cacheDir,"winpe-download.zip.part")
             try {
                 var last = 0L
-                GithubBundle.download(file,cookie,{cancelled.get()},{connection=it}) { bytes,total ->
+                GithubBundle.download(file,approvedBytes,{cancelled.get()},{connection=it}) { bytes,total ->
                     if(SystemClock.elapsedRealtime()-last>=400 || bytes==total) {
                         last=SystemClock.elapsedRealtime()
                         val message="WinPE · ${bytes/1048576} / ${total/1048576} Mio"
@@ -60,9 +60,9 @@ class WinPeDownloadService : Service() {
                 ServerStore.mutable.update { it.copy(importingWinPe=true) }
                 WinPeDownloadStore.mutable.update { it.copy(message="Import et validation de WinPE…") }
                 file.inputStream().use { WinPeStorage.importBundle(this,it) }
-                WinPeDownloadStore.mutable.update { it.copy(active=false,message="WinPE prêt · fichiers et routes vérifiés.",prepared=it.prepared+1,loginRequired=false) }
+                WinPeDownloadStore.mutable.update { it.copy(active=false,message="WinPE prêt · fichiers et routes vérifiés.",prepared=it.prepared+1) }
             } catch(e: Exception) {
-                WinPeDownloadStore.mutable.update { it.copy(active=false,loginRequired=e is GithubLoginRequired,message=if(cancelled.get()) "Téléchargement annulé." else "Téléchargement non terminé : ${e.message}") }
+                WinPeDownloadStore.mutable.update { it.copy(active=false,message=if(cancelled.get()) "Téléchargement annulé." else "Téléchargement non terminé : ${e.message}") }
             } finally {
                 file.delete()
                 ServerStore.mutable.update { it.copy(importingWinPe=false) }
@@ -86,12 +86,11 @@ class WinPeDownloadService : Service() {
         private const val CHANNEL = "winpe-download"
         private const val START = "app.pocketinstall.DOWNLOAD_WINPE"
         private const val CANCEL = "app.pocketinstall.CANCEL_WINPE"
-        fun start(context: Context,cookie: String="") {
-            WinPeDownloadStore.mutable.update { it.copy(active=true,message="Démarrage du téléchargement…",bytes=0,total=0,loginRequired=false) }
-            try { ContextCompat.startForegroundService(context,Intent(context,WinPeDownloadService::class.java).setAction(START).putExtra("cookie",cookie)) }
+        fun start(context: Context,approvedBytes: Long) {
+            WinPeDownloadStore.mutable.update { it.copy(active=true,message="Démarrage du téléchargement…",bytes=0,total=0) }
+            try { ContextCompat.startForegroundService(context,Intent(context,WinPeDownloadService::class.java).setAction(START).putExtra("approvedBytes",approvedBytes)) }
             catch(e: Exception) { WinPeDownloadStore.mutable.update { it.copy(active=false,message="Téléchargement indisponible : ${e.message}") } }
         }
-        fun dismissLogin() { WinPeDownloadStore.mutable.update { it.copy(loginRequired=false) } }
         fun cancel(context: Context) { context.startService(Intent(context,WinPeDownloadService::class.java).setAction(CANCEL)) }
     }
 }

@@ -1,32 +1,14 @@
-# EFI minimal
+# Diagnostic EFI
 
-Linux x86_64, GCC/binutils, GNU-EFI et Python 3 suffisent :
+This small x64 EFI proof of concept displays PocketInstall success and shuts down after a key press or 30 seconds. It does not open disk protocols, install an OS or load WinPE.
+
+Build with GNU-EFI:
 
 ```sh
-sudo apt install build-essential binutils gnu-efi python3
 make -C boot
+python3 scripts/sync_android_boot.py
 ```
 
-Pour un SDK GNU-EFI extrait sans installation système :
+The Android asset's hash and identity must match the build. Native HTTP/PXE success proves the diagnostic loader executed, not OS installation. The image is unsigned; Secure Boot policy may reject it. GNU-EFI notices remain applicable.
 
-```sh
-make -C boot EFI_SDK=/chemin/sdk/usr
-```
-
-Sur une distribution plaçant les bibliothèques ailleurs, ajuster `EFI_LIB`.
-Le résultat est `boot/build/bootx64.efi`. `scripts/verify_efi.py` contrôle le PE x64,
-le subsystem EFI_APPLICATION, les sections, les imports et le message embarqué.
-Les bibliothèques liées sont seulement crt0 et la relocation GNU-EFI, sans libefi.
-Les appels firmware utilisent l'ABI Microsoft x64 via les headers GNU-EFI.
-
-Le programme affiche le succès, attend une touche/30 s puis appelle ResetSystem
-avec EfiResetShutdown. Il n'ouvre ni protocole BlockIO ni SimpleFileSystem, ne
-charge pas Windows, ne modifie pas BCD/NVRAM et ne possède aucune pile réseau.
-L'UEFI réalise le transfert HTTP avant de lui donner la main.
-
-Le binaire est **non signé**. `bootx64.efi` est un nom conventionnel, pas le boot
-manager Microsoft. Ne pas remplacer ce fichier par un boot manager Microsoft
-isolé et supposer que BCD/WIM seront ensuite trouvés sur HTTP.
-
-Inclure `THIRD_PARTY_NOTICES.txt` lors d'une redistribution du binaire. La signature
-Secure Boot et ARM64/IA32 sont hors périmètre de ce build.
+See [iPXE](ipxe/README.md), [PXE](../docs/PXE.md) and [Testing](../docs/TESTING.md) for subsequent stages.

@@ -1,62 +1,69 @@
-<p align="center"><img src=".github/assets/pocketinstall-banner.svg" alt="PocketInstall — Un nouveau système. Depuis ton téléphone." width="100%"></p>
-<p align="center"><strong>Installe Windows ou Debian depuis un téléphone Android, via le réseau local.</strong></p>
-<p align="center">Android 8+ · UEFI x64 · PC en Ethernet · Téléphone sans root</p>
-<p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.4.0"><strong>Télécharger la 3.4.0</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Configurer la Freebox</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Proposer une fonctionnalité</a></p>
+<p align="center"><img src=".github/assets/pocketinstall-banner.svg" alt="PocketInstall — A fresh OS. From your phone." width="100%"></p>
+<p align="center"><strong>Install Windows or Debian from your Android phone over your local network.</strong></p>
+<p align="center">Android 8+ · UEFI x64 · Ethernet-connected PC · No phone root required</p>
+<p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.4.1"><strong>Download 3.4.1</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Freebox setup</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Contribute a feature</a></p>
 
 ---
 
-## Choisis ton prochain système
+## Pick your next OS
 
-| Windows | Linux bureau | Linux serveur |
+| Windows | Linux desktop | Linux server |
 |:---|:---|:---|
-| Windows 10 / 11, Home / Pro | Debian 13 avec Xfce | Debian 13 sans interface graphique |
-| Choix de l’édition et options de débloat | Un bureau léger pour le quotidien | Outils standard et SSH |
-| Image Microsoft officielle | Démarrage téléchargé depuis Debian | Même démarrage, profil serveur |
+| Windows 10 / 11, Home / Pro | Debian 13 with Xfce | Debian 13 without a graphical desktop |
+| Edition selection and optional debloat | A lightweight everyday desktop | Standard tools and SSH |
+| Official Microsoft installation media | Official Debian boot files | Same boot files, server profile |
 
-**Préparer → Installer → suivre la progression.** La bibliothèque affiche les images conservées sur le téléphone et permet de libérer leur espace. Les explications se trouvent dans les boutons **? Aide**, les journaux dans le diagnostic.
+**Prepare → Install → follow progress.** The Library lists downloaded environments and images and lets you remove local copies. Tap **? Help** for explanations; technical logs and manual commands stay in Diagnostics.
 
-## Commencer
+## Get started
 
-1. Installe [PocketInstall-3.4.0.apk](https://github.com/P1kaCat/PocketInstall/releases/download/v3.4.0/PocketInstall-3.4.0.apk) sur ton téléphone.
-2. Dans **Préparer**, sélectionne Windows, Linux bureau ou Linux serveur.
-3. Pour Linux, appuie sur **Télécharger Debian**. Pour Windows, appuie sur **Télécharger WinPE depuis GitHub**, puis prépare l’image Microsoft dans la section Windows. Le ZIP est récupéré et importé automatiquement ; l’accès au dépôt privé peut demander une connexion GitHub.
-4. Connecte le téléphone au Wi-Fi et le PC à la même box en Ethernet. Dans **Installer**, démarre le serveur.
-5. Démarre le PC en **UEFI PXE IPv4**, puis termine les choix d’installation à son écran.
+1. Install [PocketInstall-3.4.1.apk](https://github.com/P1kaCat/PocketInstall/releases/download/v3.4.1/PocketInstall-3.4.1.apk) on your phone.
+2. In **Prepare**, choose Windows, Linux desktop, or Linux server.
+3. For Linux, choose **Download Debian**. For Windows, download/import WinPE, then prepare your official Microsoft image. The ZIP is downloaded and imported automatically from the public GitHub release; no GitHub account is required.
+4. Review the actual download size and source, then confirm. If the size is unavailable or changes, PocketInstall blocks the transfer instead of downloading silently.
+5. Connect your phone to Wi-Fi and your PC to the same router using Ethernet. In **Install**, start the server.
+6. Boot the PC using **UEFI PXE IPv4** and finish installation choices on the PC.
 
-> La box se configure manuellement **une seule fois** : `snponly.efi` et l’export `pocketinstall.ipxe` dans son dossier TFTP, DHCP annonçant l’IP de la box et `snponly.efi`. Si PocketInstall démarre déjà automatiquement sur ton PC, conserve ces réglages. Réserve l’IP du téléphone.
+> Configure the router manually **once**: place `snponly.efi` and the app's exported `pocketinstall.ipxe` in its TFTP folder; configure DHCP with the router's TFTP IP and `snponly.efi` as the boot filename. If automatic PocketInstall boot already works, keep those settings. Reserve your phone's IP.
 
-Le téléchargement Debian prépare environ 55 Mio de fichiers de démarrage ; le PC télécharge ensuite les paquets sur Internet. Linux ne nécessite pas WinPE. Les fichiers sont vérifiés avant l’activation du serveur.
+Debian boot files are roughly 55 MiB; the confirmation shows the current exact total. The PC downloads installation packages separately over the Internet. Linux does not need WinPE.
 
-## Ce que la progression confirme
+**Windows installation erases the selected disk only after confirmation on the PC. Back up anything you need first.** An interrupted deployment can leave that disk without a working OS.
 
-Un fichier transféré ne prouve pas que le système a démarré. PocketInstall distingue la connexion iPXE, l’envoi des fichiers, le signal de WinPE ou de l’installateur Debian et la fin de l’installation. Le premier démarrage reste à constater sur le PC lorsque son signal n’est pas disponible.
+## Sources and provenance
 
-L’installation Windows a été réalisée sur le PC physique de développement. La validation Debian de cette version couvre les routes des deux profils et le démarrage du véritable installateur en VM sans disque ; une installation Linux complète sur matériel physique reste à vérifier. La compatibilité dépend du firmware et des pilotes réseau du PC. Les chargeurs fournis ne sont pas signés pour Secure Boot.
+Windows ISOs come directly from Microsoft's approved HTTPS media hosts. The [WinPE ZIP](https://github.com/P1kaCat/PocketInstall/releases/tag/v3.2.0) is prepared by PocketInstall from [Microsoft ADK and the WinPE add-on](https://learn.microsoft.com/en-us/windows-hardware/get-started/adk-install), with iPXE/wimboot boot components. Microsoft does not publish a PocketInstall ZIP. Source attribution does not grant redistribution rights; applicable third-party terms still apply. Windows is a Microsoft product. PocketInstall is not affiliated with or endorsed by Microsoft.
+
+## What progress actually proves
+
+A completed file transfer does not prove an OS has started. PocketInstall distinguishes iPXE contact, file delivery, a WinPE/Debian installer runtime signal, and installation progress. First boot must be observed on the PC when its runtime signal is unavailable.
+
+Windows installation reached first boot on the development PC. Debian validation covers both profiles' HTTP routes and actual installer startup in a diskless VM; a complete physical Linux installation is still unverified. Firmware and network-driver compatibility vary. Supplied loaders are not Secure Boot signed.
 
 ## Documentation
 
-| Pour… | Lire… |
+| Task | Guide |
 |:---|:---|
-| Installer Windows et choisir les options | [Installation Windows](docs/WINDOWS_INSTALL.md) |
-| Installer Debian bureau ou serveur | [Installation Linux](docs/LINUX_INSTALL.md) |
-| Préparer DHCP et TFTP | [Guide Freebox](docs/WINPE_FREEBOX.md) |
-| Comprendre le réseau et ses limites | [Compatibilité](COMPATIBILITY.md) · [Sécurité](SECURITY.md) |
-| Ajouter une distribution ou une fonction | [Contribuer](CONTRIBUTING.md) |
-| Consulter les changements | [Releases](https://github.com/P1kaCat/PocketInstall/releases) |
+| Choose Windows, storage and debloat | [Windows installation](docs/WINDOWS_INSTALL.md) |
+| Install Debian desktop or server | [Linux installation](docs/LINUX_INSTALL.md) |
+| Configure DHCP/TFTP once | [Freebox guide](docs/WINPE_FREEBOX.md) |
+| Understand hardware and network limits | [Compatibility](COMPATIBILITY.md) · [Security](SECURITY.md) |
+| Add a distribution or feature | [Contributing](CONTRIBUTING.md) |
+| Inspect validation and changes | [Validation](docs/VALIDATION.md) · [Releases](https://github.com/P1kaCat/PocketInstall/releases) |
 
-## Développement
+## Development
 
-Le dépôt garde le code Android/Compose, le serveur Kotlin partagé, l’installateur Windows, les outils de préparation et les preuves historiques. Les anciens workflows propres à une version ont été retirés ; les pipelines de construction et validation restent disponibles.
-
-Pour compiler : JDK 17, SDK Android 36 et Build Tools 36.0.0. Le petit EFI de diagnostic se construit avec GNU-EFI (`make -C boot`, puis `python3 scripts/sync_android_boot.py`). Pour Linux, ajoute le `snponly.efi` officiel de la release dans `android/app/src/main/assets/boot/` ; sa source correspondante accompagne la release.
+The repository includes the Android/Compose app, shared Kotlin server, Windows deployment scripts, build tools and historical evidence. Use JDK 17, Android SDK 36 and Build Tools 36.0.0. Build the diagnostic EFI with GNU-EFI (`make -C boot`, then `python3 scripts/sync_android_boot.py`). Copy the release's `snponly.efi` into `android/app/src/main/assets/boot/`; its corresponding source archive accompanies the release.
 
 ```sh
 cd android
 bash gradlew :server-core:test :app:assembleDebug :app:lintDebug
 ```
 
-## Licence et contributions
+GitHub APKs are development builds. A signed release AAB, privacy documentation, Play Console declarations and Microsoft redistribution review are still required before Google Play submission.
 
-**Utilisation personnelle autorisée. Republication et distribution de versions modifiées interdites sans accord écrit.** Les modifications du code sont autorisées uniquement pour préparer une contribution au dépôt officiel, selon [LICENSE](LICENSE) et [CONTRIBUTING.md](CONTRIBUTING.md). Par exemple : développer un profil de distribution, le tester en privé, puis proposer une pull request.
+## License and contributions
 
-Cette licence concerne les éléments originaux de PocketInstall à partir de cette version. Les composants tiers et les versions historiques conservent leurs propres droits. Voir [les licences et notices](docs/LICENSING.md).
+**Personal use is allowed. Republishing or distributing modified versions requires written permission.** Original PocketInstall code may be changed only to prepare a contribution to the official repository, under [LICENSE](LICENSE) and [CONTRIBUTING.md]. For example: develop a distribution profile, test it privately, then submit a pull request.
+
+The proprietary license covers original elements expressly licensed under it from 3.4.0 onward. Earlier grants and third-party rights remain intact. See [Licensing and notices](docs/LICENSING.md).

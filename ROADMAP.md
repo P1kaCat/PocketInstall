@@ -1,54 +1,25 @@
 # Roadmap
 
-Les cases ne sont cochées qu'après validation du critère indiqué.
+## Available
 
-## Proof of Concept
+- Android app with help dialogs, diagnostics, logo and six interface languages.
+- Router-configured PXE boot with automatic iPXE chaining.
+- Validated WinPE import and startup reporting.
+- Official Microsoft ISO download and x64 image import.
+- Windows edition selection, optional debloat and locally confirmed disk deployment.
+- Single/split storage layouts and automatic Windows capacity estimation.
+- Debian 13 Xfce desktop and headless SSH server profiles.
+- Local library, deletion and public WinPE ZIP download.
+- Explicit download-size/source confirmation and English repository documentation.
 
-- [x] Recherche des protocoles, firmware, Android, WinPE et des limites sans fil.
-- [x] Architecture et contrat HTTP de fichiers statiques.
-- [x] Compiler un EFI x64 autonome, message de succès, arrêt, aucun accès disque.
-- [x] Test de ce binaire sous QEMU/OVMF avec **HTTP**, sans boot PXE/iPXE implicite.
-- [x] Tester le serveur Kotlin de l'APK avec HTTP Boot natif en VM.
-- [x] Compiler l'APK Android POC et vérifier son asset EFI et sa signature APK.
-- [x] Ajouter TFTP Android/JVM borné et tester le protocole par échanges UDP.
-- [x] Exécuter le POC via PXE natif dans QEMU/OVMF, TFTP de référence, zéro disque.
-- [x] Préparer le diagnostic PXE et un relais Linux proxy-DHCP ciblé.
-- [ ] Valider le mode PXE APK sur un Android réel non rooté (port 69/6969, pare-feu).
-- [ ] Valider DHCP configurable / proxy-DHCP et EFI sur un PC PXE physique.
-- [ ] Servir le même binaire depuis Android non rooté ; journaliser le transfert.
-- [ ] Constater le message et l'arrêt sur un PC physique, firmware/version tracés.
+## Next validation and publication work
 
-## MVP
+- Complete Linux installation and cold boot on representative physical PCs.
+- Broader Windows edition, firmware and driver coverage.
+- Signed production AAB, privacy policy and Play Console declarations.
+- Review Microsoft component redistribution rights; attribution alone is insufficient.
+- Translate remaining Linux/library diagnostics and new product copy.
 
-- [ ] Valider iPXE + wimboot + WinPE de test, d'abord en Ethernet PC.
-- [ ] Import SAF d'un bundle WinPE utilisateur, stockage privé et manifeste.
-- [ ] Authentifier les hashes attendus indépendamment du transport HTTP.
-- [ ] Télécharger une image Windows en VM et valider intégrité/reprise > 4 Gio.
-- [ ] Inventaire disques fiable et plan affiché ; confirmation locale `ERASE`.
-- [ ] Installer Windows 11 dans une VM jetable, boot et WinRE vérifiés.
+## Possible extensions
 
-## Alpha
-
-- [ ] Home/Pro par index réel, langue et architecture vérifiées ; x64 d'abord.
-- [ ] Intégration officielle des média ; revue des licences avant redistribution.
-- [ ] Recovery : sauvegarde, terminal local, disques en lecture seule par défaut.
-- [ ] Réparation EFI/BCD avec sauvegarde et confirmation des écritures.
-- [ ] Diagnostic SSD sans promesse de récupération de données impossible.
-- [ ] Mesures OEM, pertes Wi-Fi, batterie, chauffe, permissions SDK 37.
-
-## Beta
-
-- [ ] Chemin Secure Boot complet, signatures, db/dbx et CA 2023 testés.
-- [ ] Profil Clean puis Gaming/Dev/Custom explicites, audités et réversibles.
-- [ ] Essais matériels indépendants et matrice de compatibilité publiée.
-- [ ] Étude du sans-fil après le firmware : iPXE/SNP, WinPE limité, alternative Linux.
-
-## v1
-
-- [ ] Installation et Recovery reproductibles sur le matériel officiellement listé.
-- [ ] Provenance des média, confiance réseau, mises à jour et rollback documentés.
-- [ ] Parcours incompatibilité utile, aucune prétention de support universel.
-
-Les fonctionnalités Dev (Git, VS Code, runtimes, WSL) seront des choix post-install.
-WSL et certains composants nécessitent Windows, virtualisation et parfois un
-redémarrage ; ils ne sont pas « préinstallés » simplement en retirant des Appx.
+Additional official distribution profiles, recovery workflows and improved compatibility checks may be proposed through [Contributing](CONTRIBUTING.md). These are directions, not announced supported features.
