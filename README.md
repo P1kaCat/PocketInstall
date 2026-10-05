@@ -1,4 +1,4 @@
-<p align="center"><img src=".github/assets/pocketinstall-banner.svg" alt="PocketInstall — A fresh OS. From your phone." width="100%"></p>
+<p align="center"><img src=".github/assets/pocketinstall-banner-en.svg" alt="PocketInstall — A fresh OS. From your phone." width="100%"></p>
 <p align="center"><strong>Install Windows or Debian from your Android phone over your local network.</strong></p>
 <p align="center">Android 8+ · UEFI x64 · Ethernet-connected PC · No phone root required</p>
 <p align="center"><a href="https://github.com/P1kaCat/PocketInstall/releases/tag/v3.4.1"><strong>Download 3.4.1</strong></a> &nbsp; · &nbsp; <a href="docs/WINPE_FREEBOX.md">Freebox setup</a> &nbsp; · &nbsp; <a href="CONTRIBUTING.md">Contribute a feature</a></p>
